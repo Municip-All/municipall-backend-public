@@ -107,7 +107,7 @@ jobs:
                       cd "$APP_ROOT/current"
 
                       # OPTIONAL: per-environment overrides (expects .env.production, .env.dev, ... already on the VPS)
-                      ENV_FILE=".env.${DEPLOY_ENV}"
+                      ENV_FILE=".env.${{ env.DEPLOY_ENV }}"
                       if [ ! -f "$ENV_FILE" ]; then
                         echo "Missing $ENV_FILE on the server. Please create it with secrets." >&2
                         exit 1
