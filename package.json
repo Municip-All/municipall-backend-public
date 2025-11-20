@@ -1,0 +1,28 @@
+{
+    "name": "municipall-monorepo",
+    "version": "1.0.0",
+    "description": "Municipall monorepo containing backend and database",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "backend:install": "cd packages/backend && npm install",
+        "backend:dev": "cd packages/backend && npm run start:dev",
+        "backend:build": "cd packages/backend && npm run build",
+        "backend:start": "cd packages/backend && npm run start:prod",
+        "backend:test": "cd packages/backend && npm test",
+        "backend:lint": "cd packages/backend && npm run lint",
+        "db:up": "cd packages/database && docker-compose up -d",
+        "db:down": "cd packages/database && docker-compose down",
+        "db:logs": "cd packages/database && docker-compose logs -f",
+        "db:reset": "cd packages/database && docker-compose down -v && docker-compose up -d",
+        "dev": "npm run db:up && npm run backend:dev",
+        "setup": "npm run backend:install && npm run db:up"
+    },
+    "author": "",
+    "license": "UNLICENSED",
+    "dependencies": {
+        "package.json": "^2.0.1"
+    }
+}
