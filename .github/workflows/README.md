@@ -43,7 +43,7 @@ ssh-copy-id -i ~/.ssh/github_actions_deploy.pub deploy@VPS_HOST
 
 ### Fichiers `.env.<env>` sur le serveur
 
-Création minimale (`/home/deploy/apps/municipall-backend/.env.production`) :
+Créez un fichier par environnement directement dans son dossier `DEPLOY_PATH` (ex. `/home/deploy/apps/municipall-backend/production/.env.production`, `/home/deploy/apps/municipall-backend/dev/.env.dev`). Exemple de contenu :
 
 ```env
 NODE_ENV=production

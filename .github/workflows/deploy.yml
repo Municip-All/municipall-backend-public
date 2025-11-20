@@ -104,10 +104,9 @@ jobs:
                       ln -sfn "$RELEASE_DIR" "$APP_ROOT/current"
                       rm -f "$APP_ROOT/deploy.tar.gz"
 
+                      # OPTIONAL: per-environment overrides (expects .env.production, .env.dev, ... already on the VPS root)
+                      ENV_FILE="$APP_ROOT/.env.${{ env.DEPLOY_ENV }}"
                       cd "$APP_ROOT/current"
-
-                      # OPTIONAL: per-environment overrides (expects .env.production, .env.dev, ... already on the VPS)
-                      ENV_FILE=".env.${{ env.DEPLOY_ENV }}"
                       if [ ! -f "$ENV_FILE" ]; then
                         echo "Missing $ENV_FILE on the server. Please create it with secrets." >&2
                         exit 1
