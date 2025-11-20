@@ -73,7 +73,7 @@ jobs:
                     packages/backend \
                     packages/database \
                     package.json \
-                    packages/backend/package-lock.json
+                    package-lock.json
               # Archives only what is required on the VPS (backend + compose stack)
 
             - name: Upload bundle to VPS
