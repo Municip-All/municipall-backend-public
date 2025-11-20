@@ -1,0 +1,121 @@
+name: Deploy Backend to VPS
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+        inputs:
+            environment:
+                description: "Target environment name (production, staging, dev, …)"
+                required: false
+                default: "production"
+
+env:
+    NODE_VERSION: 20
+    APP_NAME: municipall-backend
+    DEPLOY_PATH: /home/deploy/apps/municipall-backend
+    COMPOSE_FILE: docker-compose.yml
+
+jobs:
+    deploy:
+        name: Deploy ${{ inputs.environment || 'production' }}
+        runs-on: ubuntu-latest
+        environment: ${{ inputs.environment || 'production' }}
+        env:
+            DEPLOY_ENV: ${{ inputs.environment || 'production' }}
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              # Grabs the backend + docker-compose sources from the monorepo
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+              # Makes npm available for dependency restoration and lint/build steps
+
+            - name: Install backend dependencies
+              run: |
+                  set -euo pipefail
+                  cd packages/backend
+                  npm ci
+              # Ensures the Nest.js backend builds with a clean dependency tree
+
+            - name: Run backend tests
+              run: |
+                  set -euo pipefail
+                  cd packages/backend
+                  npm test -- --runInBand
+              # Optional safety net before shipping (fast unit tests)
+
+            - name: Build backend artefacts
+              run: |
+                  set -euo pipefail
+                  cd packages/backend
+                  npm run build
+              # Produces the dist/ folder used by the Docker image / containers
+
+            - name: Package deployment bundle
+              run: |
+                  set -euo pipefail
+                  if [ ! -f docker-compose.yml ]; then
+                    echo "docker-compose.yml is required at the repo root for deployment" >&2
+                    exit 1
+                  fi
+                  tar czf deploy.tar.gz \
+                    --exclude="node_modules" \
+                    --exclude=".git" \
+                    docker-compose.yml \
+                    packages/backend \
+                    packages/database \
+                    package.json \
+                    packages/backend/package-lock.json
+              # Archives only what is required on the VPS (backend + compose stack)
+
+            - name: Upload bundle to VPS
+              uses: appleboy/scp-action@v0.1.7
+              with:
+                  host: ${{ secrets.VPS_HOST }}
+                  username: ${{ secrets.VPS_USER }}
+                  key: ${{ secrets.SSH_KEY }}
+                  port: ${{ secrets.SSH_PORT || 22 }}
+                  source: "deploy.tar.gz"
+                  target: "${{ env.DEPLOY_PATH }}"
+              # Transfers the archive via SSH using the dedicated deploy user
+
+            - name: Deploy stack with Docker Compose
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ secrets.VPS_HOST }}
+                  username: ${{ secrets.VPS_USER }}
+                  key: ${{ secrets.SSH_KEY }}
+                  port: ${{ secrets.SSH_PORT || 22 }}
+                  script: |
+                      set -euo pipefail
+                      APP_ROOT="${{ env.DEPLOY_PATH }}"
+                      RELEASE_DIR="$APP_ROOT/releases/${{ github.sha }}"
+
+                      mkdir -p "$RELEASE_DIR"
+                      tar xzf "$APP_ROOT/deploy.tar.gz" -C "$RELEASE_DIR"
+                      ln -sfn "$RELEASE_DIR" "$APP_ROOT/current"
+                      rm -f "$APP_ROOT/deploy.tar.gz"
+
+                      cd "$APP_ROOT/current"
+
+                      # OPTIONAL: per-environment overrides (expects .env.production, .env.dev, ... already on the VPS)
+                      ENV_FILE=".env.${DEPLOY_ENV}"
+                      if [ ! -f "$ENV_FILE" ]; then
+                        echo "Missing $ENV_FILE on the server. Please create it with secrets." >&2
+                        exit 1
+                      fi
+
+                      # Build/pull only app-related services. Volumes ensure DB data persists.
+                      docker compose --env-file "$ENV_FILE" --file ${{ env.COMPOSE_FILE }} pull backend || true
+                      docker compose --env-file "$ENV_FILE" --file ${{ env.COMPOSE_FILE }} up -d --build backend redis
+                      docker compose --env-file "$ENV_FILE" --file ${{ env.COMPOSE_FILE }} up -d postgres
+
+                      # Optional housekeeping: keep the last 3 releases to ease rollbacks
+                      ls -1dt "$APP_ROOT"/releases/* | tail -n +4 | xargs -r rm -rf
+              # Extracts the archive on the VPS and redeploys the Docker Compose stack without touching volumes
