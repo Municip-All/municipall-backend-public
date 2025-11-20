@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - dev
     workflow_dispatch:
         inputs:
             environment:
@@ -14,16 +15,17 @@ on:
 env:
     NODE_VERSION: 20
     APP_NAME: municipall-backend
-    DEPLOY_PATH: /home/deploy/apps/municipall-backend
+    DEPLOY_BASE_PATH: /home/deploy/apps/municipall-backend
     COMPOSE_FILE: docker-compose.yml
 
 jobs:
     deploy:
-        name: Deploy ${{ inputs.environment || 'production' }}
+        name: "Deploy ${{ inputs.environment != '' && inputs.environment || (github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/dev' && 'dev' || 'production')) }}"
         runs-on: ubuntu-latest
-        environment: ${{ inputs.environment || 'production' }}
+        environment: "${{ inputs.environment != '' && inputs.environment || (github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/dev' && 'dev' || 'production')) }}"
         env:
-            DEPLOY_ENV: ${{ inputs.environment || 'production' }}
+            DEPLOY_ENV: "${{ inputs.environment != '' && inputs.environment || (github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/dev' && 'dev' || 'production')) }}"
+            DEPLOY_PATH: "${{ format('/home/deploy/apps/municipall-backend/{0}', inputs.environment != '' && inputs.environment || (github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/dev' && 'dev' || 'production'))) }}"
 
         steps:
             - name: Checkout repository
