@@ -49,19 +49,24 @@ Créez un fichier par environnement directement dans son dossier `DEPLOY_PATH` (
 NODE_ENV=production
 DEPLOY_ENV=production
 BACKEND_PORT=3000
+POSTGRES_PORT=5432
 POSTGRES_DB=municipall
 POSTGRES_USER=municipall
 POSTGRES_PASSWORD=change_me
 JWT_SECRET=change_me
 REDIS_PASSWORD=change_me
+PGADMIN_EMAIL=admin@example.com
+PGADMIN_PASSWORD=change_me
+PGADMIN_PORT=8080
 ```
 
 Créez un fichier par environnement (`.env.dev`, `.env.staging`, …). Ils ne sont jamais copiés depuis GitHub : gardez-les sur le VPS.
 
 ## 4. Docker Compose attendu
 
-- Fichier `docker-compose.yml` à la racine (fourni dans ce dépôt) avec trois services : `backend` (build Nest.js), `postgres`, `redis`.
-- Volumes : `postgres_data`, `redis_data` → aucune réinitialisation de BDD ou de cache.
+- Fichier `docker-compose.yml` à la racine (fourni dans ce dépôt) avec les services `backend`, `postgres`, `redis` et `pgadmin`.
+- Les ports exposés peuvent être ajustés par environnement via `BACKEND_PORT`, `POSTGRES_PORT` et `PGADMIN_PORT` (pratique pour faire tourner plusieurs stacks sur le même VPS).
+- Volumes : `postgres_data`, `redis_data`, `pgadmin_data` → aucune réinitialisation de données entre déploiements.
 - La commande `docker compose --env-file .env.production up -d` doit fonctionner localement sur le VPS.
 
 ## 5. Étendre à plusieurs environnements
