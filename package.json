@@ -21,5 +21,8 @@
         "setup": "npm run backend:install && npm run db:up"
     },
     "author": "",
-    "license": "UNLICENSED"
+    "license": "UNLICENSED",
+    "dependencies": {
+        "package.json": "^2.0.1"
+    }
 }
