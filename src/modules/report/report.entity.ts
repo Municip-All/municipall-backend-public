@@ -7,20 +7,26 @@ export class Report{
     @PrimaryGeneratedColumn()
     id : number;
 
-    @Column()
-    role: string;
+    @Column({type: 'integer'})
+    user_id: number;
 
-    @Column()
-    name : string;
+    @Column({type: 'varchar'})
+    content : string;
 
-    @Column()
-    email : string;
+    @Column({type: 'varchar'})
+    services: string;
 
-    @Column()
-    password : string;
+    @Column({type: 'varchar'})
+    states : string;
 
-    @CreateDateColumn()
+    @Column({type: 'timestamptz'})
     created_at: Timestamp;
 
-    
+    @Column({type: 'numeric'})
+    lat : number;
+
+    @Column({type: 'numeric'})
+    lon: number;
+
+
 }
