@@ -1,5 +1,15 @@
-import { Inject } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 
+@Injectable()
+export class ReportServices{
+  
 
+  
+  getHello(): string {
+    return 'Hello World!';
+  }
 
-export class ReportServices{}
+  
+  getNice(): string {
+    return 'Nice call men';
+  }}

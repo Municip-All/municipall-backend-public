@@ -31,6 +31,22 @@
 $ npm install
 ```
 
+  Rôle de chaque fichier
+
+  ┌─────────────────┬──────────────────────────────────────┐
+  │     Fichier     │                 Rôle                 │
+  ├─────────────────┼──────────────────────────────────────┤
+  │ *.entity.ts     │ Définit la structure de la table SQL │
+  ├─────────────────┼──────────────────────────────────────┤
+  │ *.repository.ts │ Requêtes SQL (find, save, delete...) │
+  ├─────────────────┼──────────────────────────────────────┤
+  │ *.services.ts   │ Logique métier                       │
+  ├─────────────────┼──────────────────────────────────────┤
+  │ *.controller.ts │ Routes HTTP (GET, POST...)           │
+  ├─────────────────┼──────────────────────────────────────┤
+  │ *.module.ts     │ Regroupe tout + enregistre l'entity  │
+  └─────────────────┴──────────────────────────────────────┘
+
 ## Compile and run the project
 
 ```bash
