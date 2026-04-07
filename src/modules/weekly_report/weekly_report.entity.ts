@@ -1,25 +1,21 @@
-import { Column, Entity, PrimaryColumn } from "typeorm";
-import { Timestamp } from "typeorm/browser";
+import { Column, CreateDateColumn, Entity, PrimaryColumn } from "typeorm";
 
 @Entity()
-
 export class WeeklyReport{
 
     @PrimaryColumn()
-    id : number;
+    id!: number;
 
     @Column({type: 'integer'})
-    week : number;
+    week!: number;
 
     @Column({type: 'varchar'})
-    content: string;
+    content!: string;
 
     @Column({type: 'integer'})
-    feeling: number;
+    feeling!: number;
 
-    @Column({type: 'timestamptz'})
-    created_at: Timestamp
-
-    
+    @CreateDateColumn({type: 'timestamptz'})
+    created_at!: Date;
 
 }

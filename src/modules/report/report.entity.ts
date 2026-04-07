@@ -1,32 +1,30 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
-import { Timestamp } from "typeorm/browser";
 
 @Entity()
 export class Report{
 
     @PrimaryGeneratedColumn()
-    id : number;
+    id!: number;
 
     @Column({type: 'integer'})
-    user_id: number;
+    user_id!: number;
 
     @Column({type: 'varchar'})
-    content : string;
+    content!: string;
 
     @Column({type: 'varchar'})
-    services: string;
+    services!: string;
 
     @Column({type: 'varchar'})
-    states : string;
+    states!: string;
 
-    @Column({type: 'timestamptz'})
-    created_at: Timestamp;
+    @CreateDateColumn({type: 'timestamptz'})
+    created_at!: Date;
 
     @Column({type: 'numeric'})
-    lat : number;
+    lat!: number;
 
     @Column({type: 'numeric'})
-    lon: number;
-
+    lon!: number;
 
 }

@@ -1,9 +1,9 @@
 import { Controller } from "@nestjs/common";
-import { EquipmentService } from "./equipment.services";
+import { EquipmentServices } from "./equipment.services";
 
 @Controller()
 export class EquipmentController{
-    constructor(private readonly appService: EquipmentService){
+    constructor(private readonly appService: EquipmentServices){
 
 
 
