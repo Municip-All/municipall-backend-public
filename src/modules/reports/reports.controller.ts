@@ -5,11 +5,11 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('reports')
 @Controller('reports')
-@UseGuards(JwtAuthGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Submit a new report' })
   @ApiResponse({ status: 201, description: 'Report successfully created.' })
   async createReport(@Req() req: any, @Body() reportData: any) {
@@ -25,6 +25,7 @@ export class ReportsController {
   }
 
   @Patch(':id/status')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Update report status' })
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,

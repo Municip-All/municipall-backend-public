@@ -11,6 +11,12 @@ export class City {
   @Column({ name: 'primary_color' })
   primaryColor!: string;
 
+  @Column({ name: 'secondary_color', nullable: true })
+  secondaryColor?: string;
+
+  @Column({ name: 'use_gradient', default: false })
+  useGradient!: boolean;
+
   @Column({ name: 'logo_url' })
   logoUrl!: string;
 

@@ -4,9 +4,12 @@ import { Repository } from 'typeorm';
 import { City } from './entities/city.entity';
 
 export interface CityConfig {
+  name: string;
   features: string[];
   theme: {
     primaryColor: string;
+    secondaryColor?: string;
+    useGradient: boolean;
     logoUrl: string;
   };
 }
@@ -26,6 +29,8 @@ export class CityConfigService implements OnModuleInit {
         id: 'city-1',
         name: 'Antigravity City',
         primaryColor: '#244FE5',
+        secondaryColor: '#3B82F6',
+        useGradient: true,
         logoUrl: 'https://example.com/logo.png',
         features: ['flux-live', 'agenda', 'reports'],
       });
@@ -35,12 +40,19 @@ export class CityConfigService implements OnModuleInit {
   async getCityConfig(cityId: string): Promise<CityConfig> {
     const city = await this.cityRepository.findOneBy({ id: cityId });
     if (!city) {
-      return { features: [], theme: { primaryColor: '', logoUrl: '' } };
+      return { 
+        name: 'Municip\'All', 
+        features: [], 
+        theme: { primaryColor: '#244FE5', useGradient: false, logoUrl: '' } 
+      };
     }
     return {
+      name: city.name,
       features: city.features,
       theme: {
         primaryColor: city.primaryColor,
+        secondaryColor: city.secondaryColor,
+        useGradient: city.useGradient,
         logoUrl: city.logoUrl,
       },
     };

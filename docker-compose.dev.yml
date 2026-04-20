@@ -42,6 +42,17 @@ services:
     volumes:
       - dev_redis_data:/data
 
+  pgadmin-dev:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@municipall.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5051:80"
+    depends_on:
+      - postgres-dev
+
 volumes:
   dev_postgres_data:
   dev_redis_data:
