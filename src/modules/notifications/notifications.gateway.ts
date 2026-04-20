@@ -1,4 +1,9 @@
-import { WebSocketGateway, WebSocketServer, SubscribeMessage, MessageBody } from '@nestjs/websockets';
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  MessageBody,
+} from '@nestjs/websockets';
 import { Server } from 'socket.io';
 
 @WebSocketGateway({ cors: true })
@@ -7,7 +12,7 @@ export class NotificationsGateway {
   server: Server;
 
   @SubscribeMessage('subscribe-to-city')
-  handleSubscribeToCity(@MessageBody() cityId: string) {
+  handleSubscribeToCity(@MessageBody() _cityId: string) {
     // Logic to join a room for real-time city updates
   }
 

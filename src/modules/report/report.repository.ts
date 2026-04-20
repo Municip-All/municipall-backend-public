@@ -1,3 +1,1 @@
-
-
-export class ReportRepository{}
+export class ReportRepository {}

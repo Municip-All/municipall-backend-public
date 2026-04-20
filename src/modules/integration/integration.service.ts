@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class IntegrationService {
-  async getWeatherData(cityId: string) {
+  getWeatherData(_cityId: string) {
     // Logic to fetch weather from external API
     return { temp: 22, condition: 'Sunny' };
   }
 
-  async getTrafficData(area: any) {
+  getTrafficData(_area: any) {
     // Logic to fetch traffic data
     return [];
   }

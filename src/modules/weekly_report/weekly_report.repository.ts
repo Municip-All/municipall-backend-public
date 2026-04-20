@@ -1,1 +1,1 @@
-export class WeeklyReportRepository{}
+export class WeeklyReportRepository {}

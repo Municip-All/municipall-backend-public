@@ -1,3 +1,1 @@
-
-
-export class EquipmentRepository{}
+export class EquipmentRepository {}

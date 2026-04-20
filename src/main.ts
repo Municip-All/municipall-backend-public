@@ -12,7 +12,7 @@ async function bootstrap() {
 
   // Swagger Configuration
   const config = new DocumentBuilder()
-    .setTitle('Municip\'All API')
+    .setTitle("Municip'All API")
     .setDescription('Robust backend for civic-tech platform')
     .setVersion('1.0')
     .addBearerAuth()

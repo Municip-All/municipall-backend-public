@@ -11,13 +11,13 @@ export class ReportsController {
 
   @Post()
   @ApiOperation({ summary: 'Submit a new report with GPS coordinates' })
-  async createReport(@Body() reportData: any) {
+  createReport(@Body() _reportData: any) {
     // Logic for report creation with boundary check
     return { status: 'pending', id: '123' };
   }
 
   @Get('clustered')
-  async getClustered(@Body() bounds: any) {
+  getClustered(@Body() bounds: any) {
     return this.reportsService.getClusteredReports(bounds);
   }
 }

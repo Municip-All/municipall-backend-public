@@ -8,7 +8,7 @@ export class WidgetsController {
   constructor(private readonly widgetsService: WidgetsService) {}
 
   @Get(':cityId')
-  async getWidgetsData(@Param('cityId') cityId: string) {
+  getWidgetsData(@Param('cityId') cityId: string) {
     return this.widgetsService.getAggregatedData(cityId);
   }
 }
