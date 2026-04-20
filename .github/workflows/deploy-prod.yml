@@ -1,0 +1,63 @@
+name: Deploy PROD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/municipall-backend:prod
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "~/municipall/prod/"
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/municipall/prod
+            echo "GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}" > .env
+            echo "DATABASE_USER_PROD=${{ secrets.DATABASE_USER_PROD }}" >> .env
+            echo "DATABASE_PASSWORD_PROD=${{ secrets.DATABASE_PASSWORD_PROD }}" >> .env
+            echo "DATABASE_NAME_PROD=${{ secrets.DATABASE_NAME_PROD }}" >> .env
+            echo "JWT_SECRET_PROD=${{ secrets.JWT_SECRET_PROD }}" >> .env
+            echo "OPENAI_API_KEY_PROD=${{ secrets.OPENAI_API_KEY_PROD }}" >> .env
+            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
