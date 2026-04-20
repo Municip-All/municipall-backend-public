@@ -1,66 +1,46 @@
 version: "3.9"
 
 services:
-  backend:
-    build:
-      context: ./packages/backend
-      dockerfile: Dockerfile
-    image: municipall-backend:${DEPLOY_ENV:-latest}
-    restart: unless-stopped
-    environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      PORT: ${BACKEND_PORT:-3000}
-      DATABASE_HOST: postgres
-      DATABASE_PORT: ${POSTGRES_PORT:-5432}
-      DATABASE_USER: ${POSTGRES_USER}
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
-      DATABASE_NAME: ${POSTGRES_DB}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    ports:
-      - "${BACKEND_PORT:-3000}:3000"
-    depends_on:
-      - postgres
-      - redis
-
+  # Database with PostGIS extension for spatial queries
   postgres:
-    image: postgres:15
+    image: postgis/postgis:15-3.3
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME:-municipall}
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-password}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${DATABASE_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-municipall}"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
+  # Redis for BullMQ queues and caching
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
 
+  # Optional: UI to manage the database
   pgadmin:
     image: dpage/pgadmin4:8
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_DEFAULT_EMAIL: admin@municipall.com
+      PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "${PGADMIN_PORT:-8080}:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - "8080:80"
     depends_on:
       - postgres
 
 volumes:
   postgres_data:
   redis_data:
-  pgadmin_data:

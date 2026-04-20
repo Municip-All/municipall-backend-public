@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  backend-prod:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/municipall-backend:prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_HOST: postgres-prod
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DATABASE_USER_PROD}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD_PROD}
+      DATABASE_NAME: ${DATABASE_NAME_PROD}
+      REDIS_HOST: redis-prod
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET_PROD}
+      OPENAI_API_KEY: ${OPENAI_API_KEY_PROD}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres-prod
+      - redis-prod
+
+  postgres-prod:
+    image: postgis/postgis:15-3.3
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME_PROD}
+      POSTGRES_USER: ${DATABASE_USER_PROD}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD_PROD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+
+  redis-prod:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - prod_redis_data:/data
+
+volumes:
+  prod_postgres_data:
+  prod_redis_data:
