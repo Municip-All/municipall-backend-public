@@ -1,7 +1,17 @@
-import { Controller, Post, Body, UseGuards, Req, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import { Request } from 'express';
 import { UserServices } from './user.services';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { UpdateAvatarDto } from './dto/update-avatar.dto';
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    sub: number;
+    email: string;
+    role: string;
+  };
+}
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -12,10 +22,10 @@ export class UserController {
 
   @Post('avatar')
   @ApiOperation({ summary: 'Update user avatar' })
-  async updateAvatar(@Req() req: any, @Body('avatarUrl') avatarUrl: string) {
-    if (!avatarUrl) {
+  async updateAvatar(@Req() req: AuthenticatedRequest, @Body() body: UpdateAvatarDto) {
+    if (!body.avatarUrl) {
       throw new BadRequestException('Avatar URL is required');
     }
-    return this.userServices.updateAvatar(req.user.sub, avatarUrl);
+    return this.userServices.updateAvatar(req.user.sub, body.avatarUrl);
   }
 }
