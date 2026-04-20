@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from './entities/report.entity';
+import { CreateReportDto } from './dto/create-report.dto';
 
 @Injectable()
 export class ReportsService {
@@ -10,7 +11,7 @@ export class ReportsService {
     private readonly reportRepository: Repository<Report>,
   ) {}
 
-  async create(tenantId: string, data: any): Promise<Report> {
+  async create(tenantId: string, data: CreateReportDto): Promise<Report> {
     const report = this.reportRepository.create({
       tenantId,
       category: data.category,
@@ -50,6 +51,6 @@ export class ReportsService {
 
   async getClusteredReports(_bounds: any) {
     // Placeholder for advanced geospatial clustering logic
-    return [];
+    return await Promise.resolve([]);
   }
 }

@@ -1,5 +1,7 @@
 import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param, ParseIntPipe } from '@nestjs/common';
+import { Request } from 'express';
 import { ReportsService } from './reports.service';
+import { CreateReportDto } from './dto/create-report.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
@@ -12,15 +14,15 @@ export class ReportsController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Submit a new report' })
   @ApiResponse({ status: 201, description: 'Report successfully created.' })
-  async createReport(@Req() req: any, @Body() reportData: any) {
-    const tenantId = req.tenantId || 'city-1'; // Fallback for dev
+  async createReport(@Req() req: Request & { tenantId?: string }, @Body() reportData: CreateReportDto) {
+    const tenantId = req.tenantId ?? 'city-1'; // Fallback for dev
     return this.reportsService.create(tenantId, reportData);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all reports for the current city' })
-  async getAll(@Req() req: any) {
-    const tenantId = req.tenantId || 'city-1';
+  async getAll(@Req() req: Request & { tenantId?: string }) {
+    const tenantId = req.tenantId ?? 'city-1';
     return this.reportsService.findAll(tenantId);
   }
 
