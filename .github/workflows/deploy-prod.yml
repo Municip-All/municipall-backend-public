@@ -60,12 +60,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/municipall/prod
-            echo "GITHUB_REPOSITORY_OWNER=${{ env.OWNER_LC }}" > .env
-            echo "DATABASE_USER_PROD=${{ secrets.DATABASE_USER_PROD }}" >> .env
-            echo "DATABASE_PASSWORD_PROD=${{ secrets.DATABASE_PASSWORD_PROD }}" >> .env
-            echo "DATABASE_NAME_PROD=${{ secrets.DATABASE_NAME_PROD }}" >> .env
-            echo "JWT_SECRET_PROD=${{ secrets.JWT_SECRET_PROD }}" >> .env
-            echo "OPENAI_API_KEY_PROD=${{ secrets.OPENAI_API_KEY_PROD }}" >> .env
+            cat > .env <<EOF
+            GITHUB_REPOSITORY_OWNER=${{ env.OWNER_LC }}
+            DATABASE_USER_PROD=${{ secrets.DATABASE_USER_PROD }}
+            DATABASE_PASSWORD_PROD=${{ secrets.DATABASE_PASSWORD_PROD }}
+            DATABASE_NAME_PROD=${{ secrets.DATABASE_NAME_PROD }}
+            JWT_SECRET_PROD=${{ secrets.JWT_SECRET_PROD }}
+            OPENAI_API_KEY_PROD=${{ secrets.OPENAI_API_KEY_PROD }}
+            EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d

@@ -60,12 +60,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/municipall/dev
-            echo "GITHUB_REPOSITORY_OWNER=${{ env.OWNER_LC }}" > .env
-            echo "DATABASE_USER_DEV=${{ secrets.DATABASE_USER_DEV }}" >> .env
-            echo "DATABASE_PASSWORD_DEV=${{ secrets.DATABASE_PASSWORD_DEV }}" >> .env
-            echo "DATABASE_NAME_DEV=${{ secrets.DATABASE_NAME_DEV }}" >> .env
-            echo "JWT_SECRET_DEV=${{ secrets.JWT_SECRET_DEV }}" >> .env
-            echo "OPENAI_API_KEY_DEV=${{ secrets.OPENAI_API_KEY_DEV }}" >> .env
+            cat > .env <<EOF
+            GITHUB_REPOSITORY_OWNER=${{ env.OWNER_LC }}
+            DATABASE_USER_DEV=${{ secrets.DATABASE_USER_DEV }}
+            DATABASE_PASSWORD_DEV=${{ secrets.DATABASE_PASSWORD_DEV }}
+            DATABASE_NAME_DEV=${{ secrets.DATABASE_NAME_DEV }}
+            JWT_SECRET_DEV=${{ secrets.JWT_SECRET_DEV }}
+            OPENAI_API_KEY_DEV=${{ secrets.OPENAI_API_KEY_DEV }}
+            EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.dev.yml pull
             docker compose -f docker-compose.dev.yml up -d
