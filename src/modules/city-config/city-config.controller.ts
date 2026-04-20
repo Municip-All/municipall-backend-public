@@ -6,7 +6,7 @@ export class CityConfigController {
   constructor(private readonly cityConfigService: CityConfigService) {}
 
   @Get(':cityId')
-  getConfig(@Param('cityId') cityId: string): CityConfig {
+  async getConfig(@Param('cityId') cityId: string): Promise<CityConfig> {
     return this.cityConfigService.getCityConfig(cityId);
   }
 }
