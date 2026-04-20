@@ -47,8 +47,7 @@ export class AuthController {
       throw new UnauthorizedException('User not found');
     }
     // Remove sensitive data safely
-    const result = { ...user };
-    delete (result as any).password;
+    const { password: _, ...result } = user;
     return result;
   }
 }
