@@ -4,7 +4,6 @@ import { UserService } from '../../modules/user/user.service';
 import { UserRepository } from '../../modules/user/user.repository';
 import { User } from '../../modules/user/user.entity';
 
-
 export interface JwtPayload {
   sub: number;
   email: string;
