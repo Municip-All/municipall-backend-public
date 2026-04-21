@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserServices } from '../../modules/user/user.services';
+import { UserService } from '../../modules/user/user.services';
 import { User } from '../../modules/user/user.entity';
 
 export interface JwtPayload {
@@ -13,11 +13,11 @@ export interface JwtPayload {
 export class AuthService {
   constructor(
     private jwtService: JwtService,
-    private userServices: UserServices,
+    private userService: UserService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<User | null> {
-    const user = await this.userServices.findByEmail(email);
+    const user = await this.userService.findByEmail(email);
     // Encryption to be implemented by colleague. Using direct comparison for now.
     if (user && user.password === pass) {
       return user;
@@ -41,14 +41,14 @@ export class AuthService {
   }
 
   async signup(userData: Partial<User>) {
-    const user = (await this.userServices.create({
+    const user = await this.userService.create({
       ...userData,
       role: 'Citoyen', // Default role for public signup
-    })) as User;
+    });
     return this.login(user);
   }
 
   async getMe(userId: number): Promise<User | null> {
-    return this.userServices.findById(userId);
+    return this.userService.findById(userId);
   }
 }
