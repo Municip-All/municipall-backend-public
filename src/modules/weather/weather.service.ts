@@ -1,6 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+interface OpenWeatherResponse {
+  main: {
+    temp: number;
+  };
+  weather: Array<{
+    description: string;
+    icon: string;
+  }>;
+  name: string;
+}
+
 @Injectable()
 export class WeatherService {
   private readonly apiKey: string;
@@ -21,13 +32,13 @@ export class WeatherService {
     try {
       const url = `${this.baseUrl}?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=metric&lang=fr`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`OpenWeather API returned ${response.status}`);
       }
 
-      const data = await response.json();
-      
+      const data = (await response.json()) as OpenWeatherResponse;
+
       return {
         temp: Math.round(data.main.temp),
         description: data.weather[0].description,

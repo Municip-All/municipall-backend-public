@@ -9,10 +9,7 @@ export class WeatherController {
 
   @Get()
   @ApiOperation({ summary: 'Get current weather by coordinates' })
-  getWeather(
-    @Query('lat') lat: number,
-    @Query('lon') lon: number,
-  ) {
+  getWeather(@Query('lat') lat: number, @Query('lon') lon: number) {
     return this.weatherService.getWeather(lat, lon);
   }
 }

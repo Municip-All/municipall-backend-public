@@ -5,6 +5,6 @@ export class UpdateAvatarDto {
   @ApiProperty({ example: 'https://example.com/avatar.jpg' })
   @IsNotEmpty()
   // Allow any string for now since it might be a local URI for the MVP
-  // @IsUrl() 
+  // @IsUrl()
   avatarUrl!: string;
 }

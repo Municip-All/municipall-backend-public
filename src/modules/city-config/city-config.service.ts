@@ -38,17 +38,20 @@ export class CityConfigService implements OnModuleInit {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn('CityConfigService: Could not seed default city. The "cities" table might not exist yet.', errorMessage);
+      console.warn(
+        'CityConfigService: Could not seed default city. The "cities" table might not exist yet.',
+        errorMessage,
+      );
     }
   }
 
   async getCityConfig(cityId: string): Promise<CityConfig> {
     const city = await this.cityRepository.findOneBy({ id: cityId });
     if (!city) {
-      return { 
-        name: 'Municip\'All', 
-        features: [], 
-        theme: { primaryColor: '#244FE5', useGradient: false, logoUrl: '' } 
+      return {
+        name: "Municip'All",
+        features: [],
+        theme: { primaryColor: '#244FE5', useGradient: false, logoUrl: '' },
       };
     }
     return {
