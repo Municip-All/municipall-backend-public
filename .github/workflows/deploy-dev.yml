@@ -90,6 +90,7 @@ jobs:
             DATABASE_NAME_DEV=${{ secrets.DATABASE_NAME_DEV }}
             JWT_SECRET_DEV=${{ secrets.JWT_SECRET_DEV }}
             OPENAI_API_KEY_DEV=${{ secrets.OPENAI_API_KEY_DEV }}
+            OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
             EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.dev.yml pull

@@ -90,6 +90,7 @@ jobs:
             DATABASE_NAME_PROD=${{ secrets.DATABASE_NAME_PROD }}
             JWT_SECRET_PROD=${{ secrets.JWT_SECRET_PROD }}
             OPENAI_API_KEY_PROD=${{ secrets.OPENAI_API_KEY_PROD }}
+            OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
             EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.prod.yml pull

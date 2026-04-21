@@ -33,7 +33,7 @@ export class CityConfigService implements OnModuleInit {
           secondaryColor: '#3B82F6',
           useGradient: true,
           logoUrl: 'https://example.com/logo.png',
-          features: ['flux-live', 'agenda', 'reports'],
+          features: ['flux-live', 'agenda', 'reports', 'weather'],
         });
       }
     } catch (error) {

@@ -13,6 +13,7 @@ import { AiEngineModule } from './modules/ai-engine/ai-engine.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { WidgetsModule } from './modules/widgets/widgets.module';
+import { WeatherModule } from './modules/weather/weather.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { WidgetsModule } from './modules/widgets/widgets.module';
     NotificationsModule,
     IntegrationModule,
     WidgetsModule,
+    WeatherModule,
   ],
   controllers: [AppController],
   providers: [
