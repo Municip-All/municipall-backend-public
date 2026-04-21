@@ -18,15 +18,21 @@ export class UserServices {
     return this.userRepository.findOne({ where: { id } });
   }
 
-  async create(userData: Partial<User>): Promise<User> {
-    const user = this.userRepository.create(userData);
-    return this.userRepository.save(user);
-  }
-
   async updateAvatar(userId: number, avatarUrl: string): Promise<User> {
     const user = await this.findById(userId);
     if (!user) throw new Error('User not found');
     user.avatar_url = avatarUrl;
     return this.userRepository.save(user);
   }
+
+  async create(userData: Partial<User>): Promise<User> {
+    const newUser = this.userRepository.create(userData);
+    return this.userRepository.save(newUser);
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    await this.userRepository.delete({ id });
+  }
+
 }
+
