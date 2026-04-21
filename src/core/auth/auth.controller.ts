@@ -47,7 +47,8 @@ export class AuthController {
       throw new UnauthorizedException('User not found');
     }
     // Remove sensitive data safely
-    const { password: _, ...result } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...result } = user;
     return result;
   }
 }
