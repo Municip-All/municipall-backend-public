@@ -25,11 +25,6 @@ export class UserServices {
     return this.userRepository.save(user);
   }
 
-  async create(userData: Partial<User>): Promise<User> {
-    const newUser = this.userRepository.create(userData);
-    return this.userRepository.save(newUser);
-  }
-
   async deleteUser(id: number): Promise<void> {
     await this.userRepository.delete({ id });
   }
