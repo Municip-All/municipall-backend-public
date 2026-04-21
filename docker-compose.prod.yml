@@ -18,6 +18,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY_PROD}
     ports:
       - "3000:3000"
+    networks:
+      - default
+      - proxy-bridge
     depends_on:
       - postgres-prod
       - redis-prod
@@ -25,6 +28,8 @@ services:
   postgres-prod:
     image: postgis/postgis:15-3.3
     restart: unless-stopped
+    networks:
+      - default
     environment:
       POSTGRES_DB: ${DATABASE_NAME_PROD}
       POSTGRES_USER: ${DATABASE_USER_PROD}
@@ -37,19 +42,30 @@ services:
   redis-prod:
     image: redis:7-alpine
     restart: unless-stopped
+    networks:
+      - default
     volumes:
       - prod_redis_data:/data
 
   pgadmin-prod:
     image: dpage/pgadmin4:8
     restart: unless-stopped
+    networks:
+      - default
+      - proxy-bridge
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@municipall.local
+      PGADMIN_DEFAULT_EMAIL: admin@municipall.app
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
     depends_on:
       - postgres-prod
+
+networks:
+  default:
+  proxy-bridge:
+    external: true
+    name: municipall_default
 
 volumes:
   prod_postgres_data:

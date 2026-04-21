@@ -61,6 +61,7 @@ jobs:
           script: |
             cd ~/municipall/dev
             cat > .env <<EOF
+            NODE_ENV=development
             GITHUB_REPOSITORY_OWNER=${{ env.OWNER_LC }}
             DATABASE_USER_DEV=${{ secrets.DATABASE_USER_DEV }}
             DATABASE_PASSWORD_DEV=${{ secrets.DATABASE_PASSWORD_DEV }}
