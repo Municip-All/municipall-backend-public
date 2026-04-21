@@ -37,7 +37,8 @@ export class CityConfigService implements OnModuleInit {
         });
       }
     } catch (error) {
-      console.warn('CityConfigService: Could not seed default city. The "cities" table might not exist yet.', error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn('CityConfigService: Could not seed default city. The "cities" table might not exist yet.', errorMessage);
     }
   }
 
