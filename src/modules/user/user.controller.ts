@@ -1,6 +1,6 @@
 import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { Request } from 'express';
-import { UserService } from './user.services';
+import { UserService } from './user.service';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UpdateAvatarDto } from './dto/update-avatar.dto';
