@@ -41,10 +41,10 @@ export class AuthService {
   }
 
   async signup(userData: Partial<User>) {
-    const user = await this.userServices.create({
+    const user = (await this.userServices.create({
       ...userData,
       role: 'Citoyen', // Default role for public signup
-    });
+    })) as User;
     return this.login(user);
   }
 
