@@ -1,8 +1,8 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity()
 export class User {
-  @PrimaryColumn()
+  @PrimaryGeneratedColumn()
   id!: number;
 
   @Column({ type: 'varchar' })
@@ -16,6 +16,9 @@ export class User {
 
   @Column({ type: 'varchar' })
   email!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  avatar_url?: string;
 
   @Column({ type: 'varchar' })
   password!: string;

@@ -1,28 +1,65 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { City } from './entities/city.entity';
 
 export interface CityConfig {
+  name: string;
   features: string[];
   theme: {
     primaryColor: string;
+    secondaryColor?: string;
+    useGradient: boolean;
     logoUrl: string;
   };
 }
 
 @Injectable()
-export class CityConfigService {
-  private readonly config: Record<string, CityConfig> = {
-    'city-1': {
-      features: ['flux-live', 'agenda', 'reports'],
-      theme: { primaryColor: '#007AFF', logoUrl: 'https://example.com/logo1.png' },
-    },
-  };
+export class CityConfigService implements OnModuleInit {
+  constructor(
+    @InjectRepository(City)
+    private readonly cityRepository: Repository<City>,
+  ) {}
 
-  getCityConfig(cityId: string): CityConfig {
-    return this.config[cityId] || { features: [], theme: { primaryColor: '', logoUrl: '' } };
+  async onModuleInit() {
+    // Seed default city if not exists (for dev purposes)
+    const count = await this.cityRepository.count();
+    if (count === 0) {
+      await this.cityRepository.save({
+        id: 'city-1',
+        name: 'Antigravity City',
+        primaryColor: '#244FE5',
+        secondaryColor: '#3B82F6',
+        useGradient: true,
+        logoUrl: 'https://example.com/logo.png',
+        features: ['flux-live', 'agenda', 'reports'],
+      });
+    }
   }
 
-  isFeatureEnabled(cityId: string, featureName: string): boolean {
-    const cityConfig = this.getCityConfig(cityId);
+  async getCityConfig(cityId: string): Promise<CityConfig> {
+    const city = await this.cityRepository.findOneBy({ id: cityId });
+    if (!city) {
+      return { 
+        name: 'Municip\'All', 
+        features: [], 
+        theme: { primaryColor: '#244FE5', useGradient: false, logoUrl: '' } 
+      };
+    }
+    return {
+      name: city.name,
+      features: city.features,
+      theme: {
+        primaryColor: city.primaryColor,
+        secondaryColor: city.secondaryColor,
+        useGradient: city.useGradient,
+        logoUrl: city.logoUrl,
+      },
+    };
+  }
+
+  async isFeatureEnabled(cityId: string, featureName: string): Promise<boolean> {
+    const cityConfig = await this.getCityConfig(cityId);
     return cityConfig.features.includes(featureName);
   }
 }

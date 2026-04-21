@@ -1,31 +1,54 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { UserServices } from '../../modules/user/user.services';
+import { User } from '../../modules/user/user.entity';
 
 export interface JwtPayload {
-  sub: string;
-  username: string;
-  role: string;
-}
-
-export interface UserAuth {
-  userId: string;
-  username: string;
+  sub: number;
+  email: string;
   role: string;
 }
 
 @Injectable()
 export class AuthService {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private userServices: UserServices,
+  ) {}
 
-  validateUser(payload: JwtPayload): UserAuth {
-    // Logic to validate user from payload (e.g., check database)
-    return { userId: payload.sub, username: payload.username, role: payload.role };
+  async validateUser(email: string, pass: string): Promise<User | null> {
+    const user = await this.userServices.findByEmail(email);
+    // Encryption to be implemented by colleague. Using direct comparison for now.
+    if (user && user.password === pass) {
+      return user;
+    }
+    return null;
   }
 
-  login(user: UserAuth) {
-    const payload: JwtPayload = { username: user.username, sub: user.userId, role: user.role };
+  async login(user: User) {
+    const payload: JwtPayload = { email: user.email, sub: user.id, role: user.role };
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: await this.jwtService.signAsync(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        surname: user.surname,
+        role: user.role,
+        avatar_url: user.avatar_url,
+      },
     };
+  }
+
+  async signup(userData: Partial<User>) {
+    const user = await this.userServices.create({
+      ...userData,
+      role: 'Citoyen', // Default role for public signup
+    });
+    return this.login(user);
+  }
+
+  async getMe(userId: number): Promise<User | null> {
+    return this.userServices.findById(userId);
   }
 }

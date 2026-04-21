@@ -40,6 +40,17 @@ services:
     volumes:
       - prod_redis_data:/data
 
+  pgadmin-prod:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@municipall.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres-prod
+
 volumes:
   prod_postgres_data:
   prod_redis_data:

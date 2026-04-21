@@ -1,15 +1,56 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Report } from './entities/report.entity';
+import { CreateReportDto } from './dto/create-report.dto';
 
 @Injectable()
 export class ReportsService {
+  constructor(
+    @InjectRepository(Report)
+    private readonly reportRepository: Repository<Report>,
+  ) {}
+
+  async create(tenantId: string, data: CreateReportDto): Promise<Report> {
+    const report = this.reportRepository.create({
+      tenantId,
+      category: data.category,
+      description: data.description,
+      imageUrl: data.imageUrl,
+      userId: data.userId,
+      // Convert lat/lon to PostGIS geometry Point
+      location: {
+        type: 'Point',
+        coordinates: [data.lon, data.lat],
+      },
+    });
+
+    return this.reportRepository.save(report);
+  }
+
+  async findAll(tenantId: string): Promise<Report[]> {
+    return this.reportRepository.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async updateStatus(id: number, status: string): Promise<Report> {
+    const report = await this.reportRepository.findOneBy({ id });
+    if (report) {
+      report.status = status;
+      return this.reportRepository.save(report);
+    }
+    throw new Error('Report not found');
+  }
+
   isInsideBoundary(_longitude: number, _latitude: number, _cityBoundary: any): boolean {
-    // Logic to check if point is inside PostGIS polygon using TypeORM spatial functions
-    // Example: ST_Contains(ST_GeomFromGeoJSON(:boundary), ST_SetSRID(ST_Point(:lng, :lat), 4326))
+    // Spatial logic can be implemented here using ST_Contains if needed
     return true;
   }
 
-  getClusteredReports(_bounds: any) {
-    // Logic for geospatial clustering
-    return [];
+  async getClusteredReports(_bounds: any) {
+    // Placeholder for advanced geospatial clustering logic
+    return await Promise.resolve([]);
   }
 }
