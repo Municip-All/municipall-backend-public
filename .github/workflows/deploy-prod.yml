@@ -61,6 +61,7 @@ jobs:
           script: |
             cd ~/municipall/prod
             cat > .env <<EOF
+            NODE_ENV=production
             GITHUB_REPOSITORY_OWNER=${{ env.OWNER_LC }}
             DATABASE_USER_PROD=${{ secrets.DATABASE_USER_PROD }}
             DATABASE_PASSWORD_PROD=${{ secrets.DATABASE_PASSWORD_PROD }}

@@ -18,6 +18,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY_DEV}
     ports:
       - "3001:3001"
+    networks:
+      - default
+      - proxy-bridge
     depends_on:
       - postgres-dev
       - redis-dev
@@ -25,6 +28,8 @@ services:
   postgres-dev:
     image: postgis/postgis:15-3.3
     restart: unless-stopped
+    networks:
+      - default
     environment:
       POSTGRES_DB: ${DATABASE_NAME_DEV}
       POSTGRES_USER: ${DATABASE_USER_DEV}
@@ -37,6 +42,8 @@ services:
   redis-dev:
     image: redis:7-alpine
     restart: unless-stopped
+    networks:
+      - default
     ports:
       - "6380:6379" # Map host 6380 to container 6379
     volumes:
@@ -45,13 +52,22 @@ services:
   pgadmin-dev:
     image: dpage/pgadmin4:8
     restart: unless-stopped
+    networks:
+      - default
+      - proxy-bridge
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@municipall.local
+      PGADMIN_DEFAULT_EMAIL: admin@municipall.app
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5051:80"
     depends_on:
       - postgres-dev
+
+networks:
+  default:
+  proxy-bridge:
+    external: true
+    name: municipall_default
 
 volumes:
   dev_postgres_data:

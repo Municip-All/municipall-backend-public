@@ -22,18 +22,23 @@ export class CityConfigService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Seed default city if not exists (for dev purposes)
-    const count = await this.cityRepository.count();
-    if (count === 0) {
-      await this.cityRepository.save({
-        id: 'city-1',
-        name: 'Antigravity City',
-        primaryColor: '#244FE5',
-        secondaryColor: '#3B82F6',
-        useGradient: true,
-        logoUrl: 'https://example.com/logo.png',
-        features: ['flux-live', 'agenda', 'reports'],
-      });
+    try {
+      // Seed default city if not exists (for dev purposes)
+      const count = await this.cityRepository.count();
+      if (count === 0) {
+        await this.cityRepository.save({
+          id: 'city-1',
+          name: 'Antigravity City',
+          primaryColor: '#244FE5',
+          secondaryColor: '#3B82F6',
+          useGradient: true,
+          logoUrl: 'https://example.com/logo.png',
+          features: ['flux-live', 'agenda', 'reports'],
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn('CityConfigService: Could not seed default city. The "cities" table might not exist yet.', errorMessage);
     }
   }
 
