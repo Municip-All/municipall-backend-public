@@ -13,7 +13,7 @@ export class AdminController {
   async getStats() {
     const business = await this.adminService.getBusinessStats();
     const system = await this.adminService.getSystemStats();
-    
+
     return {
       success: true,
       data: {

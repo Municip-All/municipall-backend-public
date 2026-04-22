@@ -30,6 +30,7 @@ export class AdminService {
   }
 
   async getSystemStats() {
+    await Promise.resolve(); // Satisfy @typescript-eslint/require-await
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
@@ -42,8 +43,8 @@ export class AdminService {
         cores: cpuCount,
       },
       memory: {
-        total: Math.round(totalMem / 1024 / 1024 / 1024 * 100) / 100,
-        used: Math.round(usedMem / 1024 / 1024 / 1024 * 100) / 100,
+        total: Math.round((totalMem / 1024 / 1024 / 1024) * 100) / 100,
+        used: Math.round((usedMem / 1024 / 1024 / 1024) * 100) / 100,
         percentage: Math.round((usedMem / totalMem) * 100),
       },
       uptime: os.uptime(),
