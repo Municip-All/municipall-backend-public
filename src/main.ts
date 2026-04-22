@@ -8,9 +8,9 @@ async function bootstrap() {
 
   // Enable CORS for mobile app and web dashboard access
   app.enableCors({
-    origin: true,
+    origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
+    allowedHeaders: 'Content-Type, Accept, Authorization',
   });
 
   // Global prefixes and pipes
