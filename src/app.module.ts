@@ -14,6 +14,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { IntegrationModule } from './modules/integration/integration.module';
 import { WidgetsModule } from './modules/widgets/widgets.module';
 import { WeatherModule } from './modules/weather/weather.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { WeatherModule } from './modules/weather/weather.module';
     IntegrationModule,
     WidgetsModule,
     WeatherModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
