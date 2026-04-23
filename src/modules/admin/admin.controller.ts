@@ -10,6 +10,8 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ParseIntPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import { AdminService, CreateCityData } from './admin.service';
 import { DockerService } from './docker.service';
@@ -177,6 +179,16 @@ export class AdminController {
     return {
       success: true,
       data: invitation,
+    };
+  }
+
+  @Post('invitations/:id/force-accept')
+  async forceAcceptInvitation(@Param('id', ParseIntPipe) id: number) {
+    const agent = await this.adminService.forceAcceptInvitation(id);
+    if (!agent) throw new NotFoundException('Invitation not found');
+    return {
+      success: true,
+      data: agent,
     };
   }
 }

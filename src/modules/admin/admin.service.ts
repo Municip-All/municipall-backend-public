@@ -164,4 +164,25 @@ export class AdminService {
       order: { createdAt: 'DESC' },
     });
   }
+
+  async forceAcceptInvitation(id: number) {
+    const invitation = await this.invitationRepository.findOneBy({ id });
+    if (!invitation) return null;
+
+    invitation.status = 'accepted';
+    await this.invitationRepository.save(invitation);
+
+    // Create a dummy agent user for testing
+    const dummyAgent = this.userRepository.create({
+      name: 'Agent',
+      surname: 'Test',
+      email: invitation.email,
+      role: 'agent',
+      cityId: invitation.cityId,
+      password: 'password123',
+    });
+    await this.userRepository.save(dummyAgent);
+
+    return dummyAgent;
+  }
 }
