@@ -182,6 +182,15 @@ export class AdminController {
     };
   }
 
+  @Get('activity')
+  async getActivity() {
+    const activity = await this.adminService.getRecentActivity();
+    return {
+      success: true,
+      data: activity,
+    };
+  }
+
   @Post('invitations/:id/force-accept')
   async forceAcceptInvitation(@Param('id', ParseIntPipe) id: number) {
     const agent = await this.adminService.forceAcceptInvitation(id);

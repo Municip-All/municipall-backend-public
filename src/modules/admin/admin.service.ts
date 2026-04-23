@@ -185,4 +185,36 @@ export class AdminService {
 
     return dummyAgent;
   }
+
+  async getRecentActivity() {
+    const lastUsers = await this.userRepository.find({
+      order: { created_at: 'DESC' },
+      take: 5,
+    });
+
+    const lastCities = await this.cityRepository.find({
+      order: { name: 'DESC' }, // Assuming name or add a createdAt to City
+      take: 3,
+    });
+
+    const activities = [
+      ...lastUsers.map((u) => ({
+        type: u.role === 'agent' ? 'agent' : 'user',
+        text:
+          u.role === 'agent'
+            ? `Nouvel agent : ${u.name} ${u.surname}`
+            : `Nouveau citoyen : ${u.name} ${u.surname}`,
+        time: u.created_at,
+        cityId: u.cityId,
+      })),
+      ...lastCities.map((c) => ({
+        type: 'city',
+        text: `Nouvelle ville partenaire : ${c.name}`,
+        time: new Date(), // Mocked time if createdAt doesn't exist
+        cityId: c.id,
+      })),
+    ];
+
+    return activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  }
 }
