@@ -1,6 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Report } from '../reports/entities/report.entity';
+import { User } from '../user/user.entity';
 import { City } from './entities/city.entity';
 
 export interface CityConfig {
@@ -14,11 +16,26 @@ export interface CityConfig {
   };
 }
 
+export interface CityDashboardStats {
+  satisfaction: number;
+  satisfactionTrend: number;
+  citizensCount: number;
+  activeReportsCount: number;
+  reportsTrend: number;
+  suggestionsCount: number;
+  suggestionsTrend: number;
+  trendData: { name: string; satisfaction: number }[];
+}
+
 @Injectable()
 export class CityConfigService implements OnModuleInit {
   constructor(
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
+    @InjectRepository(Report)
+    private readonly reportRepository: Repository<Report>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async onModuleInit() {
@@ -81,5 +98,35 @@ export class CityConfigService implements OnModuleInit {
       .getOne();
 
     return query;
+  }
+
+  async getDashboardStats(cityId: string): Promise<CityDashboardStats> {
+    const citizensCount = await this.userRepository.count({
+      where: { cityId, role: 'citizen' },
+    });
+
+    const activeReportsCount = await this.reportRepository.count({
+      where: { tenantId: cityId, status: 'En attente' },
+    });
+
+    // Mock trend data and others for now as we don't have historical data yet
+    return {
+      satisfaction: 78,
+      satisfactionTrend: 5,
+      citizensCount,
+      activeReportsCount,
+      reportsTrend: -12,
+      suggestionsCount: 312,
+      suggestionsTrend: 45,
+      trendData: [
+        { name: 'Lun', satisfaction: 65 },
+        { name: 'Mar', satisfaction: 68 },
+        { name: 'Mer', satisfaction: 62 },
+        { name: 'Jeu', satisfaction: 74 },
+        { name: 'Ven', satisfaction: 79 },
+        { name: 'Sam', satisfaction: 77 },
+        { name: 'Dim', satisfaction: 84 },
+      ],
+    };
   }
 }

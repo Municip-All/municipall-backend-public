@@ -38,6 +38,7 @@ export class AuthService {
         surname: user.surname,
         role: user.role,
         avatar_url: user.avatar_url,
+        cityId: user.cityId,
       },
     };
   }

@@ -26,4 +26,9 @@ export class CityConfigController {
   async getConfig(@Param('cityId') cityId: string): Promise<CityConfig> {
     return this.cityConfigService.getCityConfig(cityId);
   }
+
+  @Get(':cityId/dashboard-stats')
+  async getDashboardStats(@Param('cityId') cityId: string) {
+    return this.cityConfigService.getDashboardStats(cityId);
+  }
 }
