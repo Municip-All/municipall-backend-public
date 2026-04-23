@@ -6,9 +6,10 @@ import { DockerService } from './docker.service';
 import { DatabaseService } from './database.service';
 import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
+import { Invitation } from './entities/invitation.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, City])],
+  imports: [TypeOrmModule.forFeature([User, City, Invitation])],
   controllers: [AdminController],
   providers: [AdminService, DockerService, DatabaseService],
 })

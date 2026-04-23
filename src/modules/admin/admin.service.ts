@@ -5,6 +5,8 @@ import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import * as os from 'os';
 
+import { Invitation } from './entities/invitation.entity';
+
 export interface CreateCityData {
   id: string;
   name: string;
@@ -23,6 +25,8 @@ export class AdminService {
     private userRepository: Repository<User>,
     @InjectRepository(City)
     private cityRepository: Repository<City>,
+    @InjectRepository(Invitation)
+    private invitationRepository: Repository<Invitation>,
   ) {}
 
   async getBusinessStats() {
@@ -36,16 +40,16 @@ export class AdminService {
       users: totalUsers,
       agents,
       citizens,
-      satisfaction: 4.8, // Mocked for now, until we have a feedback table
+      satisfaction: 4.8,
     };
   }
 
   async getSystemStats() {
-    await Promise.resolve(); // Satisfy @typescript-eslint/require-await
+    await Promise.resolve();
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
-    const cpuLoad = os.loadavg()[0]; // 1 minute load average
+    const cpuLoad = os.loadavg()[0];
     const cpuCount = os.cpus().length;
 
     return {
@@ -79,10 +83,6 @@ export class AdminService {
     const { id, name, primaryColor, secondaryColor, useGradient, logoUrl, features, boundary } =
       data;
 
-    // We use a raw query or TypeORM's query builder to handle the geometry column with ST_GeomFromGeoJSON
-    // If boundary is already a GeoJSON object, we can save it directly if TypeORM is configured for it,
-    // but often with PostGIS it's safer to ensure the SRID and conversion.
-
     const city = this.cityRepository.create({
       id,
       name,
@@ -93,10 +93,8 @@ export class AdminService {
       features,
     });
 
-    // Save the basic info first
     const savedCity = await this.cityRepository.save(city);
 
-    // Update the boundary if provided (using raw query for PostGIS compatibility)
     if (boundary) {
       await this.cityRepository.query(
         `UPDATE cities SET boundary = ST_GeomFromGeoJSON($1) WHERE id = $2`,
@@ -107,14 +105,63 @@ export class AdminService {
     return savedCity;
   }
 
+  async updateCity(id: string, data: Partial<CreateCityData>) {
+    const { boundary, ...otherData } = data;
+
+    await this.cityRepository.update(id, otherData);
+
+    if (boundary) {
+      await this.cityRepository.query(
+        `UPDATE cities SET boundary = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+        [JSON.stringify(boundary), id],
+      );
+    }
+
+    return this.cityRepository.findOneBy({ id });
+  }
+
+  async deleteCity(id: string) {
+    return this.cityRepository.delete(id);
+  }
+
   async getCityStats() {
-    await Promise.resolve(); // Satisfy @typescript-eslint/require-await
-    // Mocking stats for now, as User entity doesn't have city link yet
-    return [
-      { name: 'Paris', users: 12500, agents: 450 },
-      { name: 'Lyon', users: 8400, agents: 210 },
-      { name: 'Marseille', users: 5200, agents: 180 },
-      { name: 'Toulouse', users: 3100, agents: 95 },
-    ];
+    const cities = await this.cityRepository.find();
+
+    const stats = await Promise.all(
+      cities.map(async (city) => {
+        const userCount = await this.userRepository.count({
+          where: { cityId: city.id, role: 'citizen' },
+        });
+        const agentCount = await this.userRepository.count({
+          where: { cityId: city.id, role: 'agent' },
+        });
+        const pendingInvites = await this.invitationRepository.count({
+          where: { cityId: city.id, status: 'pending' },
+        });
+
+        return {
+          name: city.name,
+          users: userCount,
+          agents: agentCount,
+          pending: pendingInvites,
+        };
+      }),
+    );
+
+    return stats;
+  }
+
+  async getCityAgents(cityId: string) {
+    return this.userRepository.find({
+      where: { cityId, role: 'agent' },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  async getCityInvitations(cityId: string) {
+    return this.invitationRepository.find({
+      where: { cityId, status: 'pending' },
+      order: { createdAt: 'DESC' },
+    });
   }
 }

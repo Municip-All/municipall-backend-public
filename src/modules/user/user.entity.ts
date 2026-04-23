@@ -4,6 +4,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 @Entity()
@@ -28,6 +29,10 @@ export class User {
 
   @Column({ type: 'varchar' })
   password!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  @Index()
+  cityId?: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at!: Date;
