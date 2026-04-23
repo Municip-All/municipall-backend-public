@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
-import { AdminService } from './admin.service';
+import { AdminService, CreateCityData } from './admin.service';
 import { DockerService } from './docker.service';
 import { DatabaseService } from './database.service';
 
@@ -80,6 +80,33 @@ export class AdminController {
     return {
       success: true,
       data: result,
+    };
+  }
+
+  @Get('cities')
+  async getCities() {
+    const cities = await this.adminService.findAllCities();
+    return {
+      success: true,
+      data: cities,
+    };
+  }
+
+  @Post('cities')
+  async createCity(@Body() data: CreateCityData) {
+    const city = await this.adminService.createCity(data);
+    return {
+      success: true,
+      data: city,
+    };
+  }
+
+  @Get('cities/stats')
+  async getCityStats() {
+    const stats = await this.adminService.getCityStats();
+    return {
+      success: true,
+      data: stats,
     };
   }
 }
