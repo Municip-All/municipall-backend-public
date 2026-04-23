@@ -70,4 +70,16 @@ export class CityConfigService implements OnModuleInit {
     const cityConfig = await this.getCityConfig(cityId);
     return cityConfig.features.includes(featureName);
   }
+
+  async findByLocation(lat: number, lon: number): Promise<City | null> {
+    const query = this.cityRepository
+      .createQueryBuilder('city')
+      .where('ST_Contains(city.boundary, ST_SetSRID(ST_Point(:lon, :lat), 4326))', {
+        lon,
+        lat,
+      })
+      .getOne();
+
+    return query;
+  }
 }
