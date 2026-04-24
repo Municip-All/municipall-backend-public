@@ -31,4 +31,13 @@ export class City {
     nullable: true,
   })
   boundary?: any;
+
+  @Column('simple-array', { nullable: true })
+  neighborhoods?: string[];
+
+  @Column('simple-json', { name: 'useful_numbers', nullable: true })
+  usefulNumbers?: { label: string; phone: string; icon: string }[];
+
+  @Column('simple-json', { name: 'useful_links', nullable: true })
+  usefulLinks?: { label: string; url: string; icon: string }[];
 }

@@ -14,6 +14,9 @@ export interface CityConfig {
     useGradient: boolean;
     logoUrl: string;
   };
+  neighborhoods?: string[];
+  usefulNumbers?: { label: string; phone: string; icon: string }[];
+  usefulLinks?: { label: string; url: string; icon: string }[];
 }
 
 export interface CityDashboardStats {
@@ -80,6 +83,9 @@ export class CityConfigService implements OnModuleInit {
         useGradient: city.useGradient,
         logoUrl: city.logoUrl,
       },
+      neighborhoods: city.neighborhoods || [],
+      usefulNumbers: city.usefulNumbers || [],
+      usefulLinks: city.usefulLinks || [],
     };
   }
 
