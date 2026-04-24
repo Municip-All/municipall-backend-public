@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Patch,
+  Param,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -14,7 +24,10 @@ export class ReportsController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Submit a new report' })
   @ApiResponse({ status: 201, description: 'Report successfully created.' })
-  async createReport(@Req() req: Request & { tenantId?: string }, @Body() reportData: CreateReportDto) {
+  async createReport(
+    @Req() req: Request & { tenantId?: string },
+    @Body() reportData: CreateReportDto,
+  ) {
     const tenantId = req.tenantId ?? 'city-1'; // Fallback for dev
     return this.reportsService.create(tenantId, reportData);
   }
@@ -29,10 +42,7 @@ export class ReportsController {
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Update report status' })
-  async updateStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: string,
-  ) {
+  async updateStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string) {
     return this.reportsService.updateStatus(id, status);
   }
 

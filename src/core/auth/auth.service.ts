@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../../modules/user/user.service';
+import { UserRepository } from '../../modules/user/user.repository';
 import { User } from '../../modules/user/user.entity';
 
 export interface JwtPayload {
@@ -14,6 +15,7 @@ export class AuthService {
   constructor(
     private jwtService: JwtService,
     private userService: UserService,
+    private userRepository: UserRepository,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<User | null> {
@@ -36,12 +38,13 @@ export class AuthService {
         surname: user.surname,
         role: user.role,
         avatar_url: user.avatar_url,
+        cityId: user.cityId,
       },
     };
   }
 
   async signup(userData: Partial<User>) {
-    const user = await this.userService.create({
+    const user = await this.userRepository.CreateUser({
       ...userData,
       role: 'Citoyen', // Default role for public signup
     });

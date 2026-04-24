@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 
 @Entity()
 export class User {
@@ -22,6 +29,10 @@ export class User {
 
   @Column({ type: 'varchar' })
   password!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  @Index()
+  cityId?: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at!: Date;

@@ -18,6 +18,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY_PROD}
     ports:
       - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - default
       - proxy-bridge
