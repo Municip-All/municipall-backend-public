@@ -16,6 +16,7 @@ export interface CreateCityData {
   logoUrl?: string;
   features?: string[];
   boundary?: unknown;
+  neighborhoods?: { id: string; name: string; points: [number, number][] }[];
 }
 
 @Injectable()
@@ -80,8 +81,17 @@ export class AdminService {
   }
 
   async createCity(data: CreateCityData) {
-    const { id, name, primaryColor, secondaryColor, useGradient, logoUrl, features, boundary } =
-      data;
+    const {
+      id,
+      name,
+      primaryColor,
+      secondaryColor,
+      useGradient,
+      logoUrl,
+      features,
+      boundary,
+      neighborhoods,
+    } = data;
 
     const city = this.cityRepository.create({
       id,
@@ -91,6 +101,7 @@ export class AdminService {
       useGradient,
       logoUrl,
       features,
+      neighborhoods,
     });
 
     const savedCity = await this.cityRepository.save(city);
