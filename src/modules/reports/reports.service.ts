@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from './entities/report.entity';
 import { CreateReportDto } from './dto/create-report.dto';
+import { User } from '../user/user.entity';
 
 @Injectable()
 export class ReportsService {
@@ -18,14 +19,38 @@ export class ReportsService {
       description: data.description,
       imageUrl: data.imageUrl,
       userId: data.userId,
-      // Convert lat/lon to PostGIS geometry Point
       location: {
         type: 'Point',
         coordinates: [data.lon, data.lat],
       },
     });
 
-    return this.reportRepository.save(report);
+    // Check if the user is a resident of this city
+    if (data.userId) {
+      const user = await this.reportRepository.manager.findOne(User, {
+        where: { id: data.userId },
+        select: ['cityId'],
+      });
+
+      if (user && user.cityId) {
+        report.isResident = user.cityId === tenantId;
+      } else {
+        report.isResident = false; // Unknown user or no resident city set
+      }
+    }
+
+    const savedReport = await this.reportRepository.save(report);
+
+    // Award points to the user (e.g., 10 points per report)
+    if (data.userId) {
+      try {
+        await this.reportRepository.manager.increment('User', { id: data.userId }, 'points', 10);
+      } catch (error) {
+        console.error('Failed to award points to user:', error);
+      }
+    }
+
+    return savedReport;
   }
 
   async findAll(tenantId: string): Promise<Report[]> {

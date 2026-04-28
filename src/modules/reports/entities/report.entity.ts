@@ -25,6 +25,9 @@ export class Report {
   @Column({ default: 'En attente' })
   status!: string; // 'En attente', 'En cours', 'Résolu'
 
+  @Column({ name: 'is_resident', default: true })
+  isResident!: boolean;
+
   @Column({ name: 'image_url', nullable: true })
   imageUrl?: string;
 

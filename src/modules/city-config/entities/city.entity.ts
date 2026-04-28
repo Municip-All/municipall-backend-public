@@ -17,8 +17,8 @@ export class City {
   @Column({ name: 'use_gradient', default: false })
   useGradient!: boolean;
 
-  @Column({ name: 'logo_url' })
-  logoUrl!: string;
+  @Column({ name: 'logo_url', nullable: true })
+  logoUrl?: string;
 
   @Column('simple-array')
   features!: string[];

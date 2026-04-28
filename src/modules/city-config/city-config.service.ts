@@ -12,7 +12,7 @@ export interface CityConfig {
     primaryColor: string;
     secondaryColor?: string;
     useGradient: boolean;
-    logoUrl: string;
+    logoUrl?: string;
   };
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];
   usefulNumbers?: { label: string; phone: string; icon: string }[];
@@ -63,6 +63,12 @@ export class CityConfigService implements OnModuleInit {
         errorMessage,
       );
     }
+  }
+
+  async findAllActive(): Promise<Partial<City>[]> {
+    return this.cityRepository.find({
+      select: ['id', 'name', 'logoUrl'],
+    });
   }
 
   async getCityConfig(cityId: string): Promise<CityConfig> {

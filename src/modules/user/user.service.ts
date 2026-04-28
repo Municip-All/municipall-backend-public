@@ -34,6 +34,7 @@ export class UserService {
     if (profileData.surname) user.surname = profileData.surname;
     if (profileData.email) user.email = profileData.email;
     if (profileData.neighborhood) user.neighborhood = profileData.neighborhood;
+    if (profileData.cityId) user.cityId = profileData.cityId;
 
     return this.userRepository.save(user);
   }
