@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { Request } from 'express';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
@@ -43,7 +43,7 @@ export class UserController {
     return this.userService.updatePassword(req.user.sub, body);
   }
 
-  @Post('stats')
+  @Get('stats')
   @ApiOperation({ summary: 'Get user stats' })
   async getStats(@Req() req: AuthenticatedRequest): Promise<any> {
     return this.userService.getStats(req.user.sub);

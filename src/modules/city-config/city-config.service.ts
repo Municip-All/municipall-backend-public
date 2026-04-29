@@ -17,6 +17,15 @@ export interface CityConfig {
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];
   usefulNumbers?: { label: string; phone: string; icon: string }[];
   usefulLinks?: { label: string; url: string; icon: string }[];
+  wasteConfig?: {
+    services: {
+      type: string;
+      icon: string;
+      color: string;
+      days: number[];
+      time: string;
+    }[];
+  };
 }
 
 export interface CityDashboardStats {
@@ -92,6 +101,7 @@ export class CityConfigService implements OnModuleInit {
       neighborhoods: city.neighborhoods || [],
       usefulNumbers: city.usefulNumbers || [],
       usefulLinks: city.usefulLinks || [],
+      wasteConfig: city.wasteConfig || { services: [] },
     };
   }
 

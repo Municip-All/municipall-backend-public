@@ -40,4 +40,15 @@ export class City {
 
   @Column('simple-json', { name: 'useful_links', nullable: true })
   usefulLinks?: { label: string; url: string; icon: string }[];
+
+  @Column('simple-json', { name: 'waste_config', nullable: true })
+  wasteConfig?: {
+    services: {
+      type: string;
+      icon: string;
+      color: string;
+      days: number[]; // 0=Sunday, 1=Monday...
+      time: string; // "HH:mm"
+    }[];
+  };
 }

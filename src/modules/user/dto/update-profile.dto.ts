@@ -21,4 +21,9 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   neighborhood?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  cityId?: string;
 }

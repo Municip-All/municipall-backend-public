@@ -15,6 +15,7 @@ import { IntegrationModule } from './modules/integration/integration.module';
 import { WidgetsModule } from './modules/widgets/widgets.module';
 import { WeatherModule } from './modules/weather/weather.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { ConstructionWorksModule } from './modules/construction-works/construction-works.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AdminModule } from './modules/admin/admin.module';
     WidgetsModule,
     WeatherModule,
     AdminModule,
+    ConstructionWorksModule,
   ],
   controllers: [AppController],
   providers: [
