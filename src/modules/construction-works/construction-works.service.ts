@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConstructionWork } from './entities/construction-work.entity';
+import { CreateConstructionWorkDto } from './dto/create-construction-work.dto';
+import { UpdateConstructionWorkDto } from './dto/update-construction-work.dto';
 
 @Injectable()
 export class ConstructionWorksService {
@@ -23,19 +25,35 @@ export class ConstructionWorksService {
     return work;
   }
 
-  async create(tenantId: string, data: Partial<ConstructionWork>): Promise<ConstructionWork> {
-    const work = this.repository.create({ ...data, tenantId });
-    return this.repository.save(work);
+  async create(tenantId: string, data: CreateConstructionWorkDto): Promise<ConstructionWork> {
+    const work = this.repository.create({
+      tenantId,
+      title: data.title,
+      description: data.description,
+      locationName: data.locationName,
+      status: data.status,
+      impactType: data.impactType,
+      startDate: data.startDate ? new Date(data.startDate) : undefined,
+      endDate: data.endDate ? new Date(data.endDate) : undefined,
+    });
+    return this.repository.save(work) as unknown as Promise<ConstructionWork>;
   }
 
   async update(
     id: number,
     tenantId: string,
-    data: Partial<ConstructionWork>,
+    data: UpdateConstructionWorkDto,
   ): Promise<ConstructionWork> {
     const work = await this.findOne(id, tenantId);
-    Object.assign(work, data);
-    return this.repository.save(work);
+    if (data.startDate) work.startDate = new Date(data.startDate);
+    if (data.endDate) work.endDate = new Date(data.endDate);
+    if (data.title) work.title = data.title;
+    if (data.description) work.description = data.description;
+    if (data.locationName) work.locationName = data.locationName;
+    if (data.status) work.status = data.status;
+    if (data.impactType) work.impactType = data.impactType;
+
+    return this.repository.save(work) as unknown as Promise<ConstructionWork>;
   }
 
   async remove(id: number, tenantId: string): Promise<void> {
