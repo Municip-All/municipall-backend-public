@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class CreateConstructionWorkDto {
   @ApiProperty({ example: 'Réfection chaussée' })
@@ -21,14 +20,12 @@ export class CreateConstructionWorkDto {
   @ApiProperty({ example: '2026-05-01' })
   @IsDateString()
   @IsNotEmpty()
-  @Type(() => Date)
-  startDate!: Date;
+  startDate!: string;
 
   @ApiProperty({ example: '2026-05-15' })
   @IsDateString()
   @IsNotEmpty()
-  @Type(() => Date)
-  endDate!: Date;
+  endDate!: string;
 
   @ApiProperty({ example: 'Programmé' })
   @IsString()
