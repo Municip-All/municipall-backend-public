@@ -25,4 +25,9 @@ export class SignupDto {
   @IsString()
   @IsOptional()
   phone?: string;
+
+  @ApiProperty({ example: 'city-1' })
+  @IsString()
+  @IsOptional()
+  cityId?: string;
 }

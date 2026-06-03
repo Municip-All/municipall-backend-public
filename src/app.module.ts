@@ -15,9 +15,13 @@ import { IntegrationModule } from './modules/integration/integration.module';
 import { WidgetsModule } from './modules/widgets/widgets.module';
 import { WeatherModule } from './modules/weather/weather.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { ConstructionWorksModule } from './modules/construction-works/construction-works.module';
+import { EventsModule } from './modules/events/events.module';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
+    DatabaseModule,
     ConfigModule.forRoot({ isGlobal: true }),
     BullModule.forRoot({
       connection: {
@@ -33,6 +37,7 @@ import { AdminModule } from './modules/admin/admin.module';
       password: process.env.DATABASE_PASSWORD || 'password',
       database: process.env.DATABASE_NAME || 'municipall',
       autoLoadEntities: true,
+      // Dev : sync auto. Prod : DatabaseSchemaService (tables/colonnes manquantes uniquement).
       synchronize: process.env.NODE_ENV !== 'production',
     }),
     AuthModule,
@@ -44,6 +49,8 @@ import { AdminModule } from './modules/admin/admin.module';
     WidgetsModule,
     WeatherModule,
     AdminModule,
+    ConstructionWorksModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [

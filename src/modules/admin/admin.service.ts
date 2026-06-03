@@ -16,6 +16,7 @@ export interface CreateCityData {
   logoUrl?: string;
   features?: string[];
   boundary?: unknown;
+  neighborhoods?: { id: string; name: string; points: [number, number][] }[];
 }
 
 @Injectable()
@@ -74,14 +75,45 @@ export class AdminService {
   }
 
   async findAllCities() {
-    return this.cityRepository.find({
-      order: { name: 'ASC' },
-    });
+    try {
+      return await this.cityRepository.find({
+        order: { name: 'ASC' },
+      });
+    } catch (error) {
+      console.error('[DATABASE ERROR] Failed to fetch cities:', error);
+      // Fallback: try to fetch without geometry/json fields if they are corrupted
+      try {
+        return await this.cityRepository.find({
+          select: [
+            'id',
+            'name',
+            'primaryColor',
+            'secondaryColor',
+            'useGradient',
+            'logoUrl',
+            'features',
+          ],
+          order: { name: 'ASC' },
+        });
+      } catch (innerError) {
+        console.error('[DATABASE ERROR] Fatal city fetch error:', innerError);
+        return [];
+      }
+    }
   }
 
   async createCity(data: CreateCityData) {
-    const { id, name, primaryColor, secondaryColor, useGradient, logoUrl, features, boundary } =
-      data;
+    const {
+      id,
+      name,
+      primaryColor,
+      secondaryColor,
+      useGradient,
+      logoUrl,
+      features,
+      boundary,
+      neighborhoods,
+    } = data;
 
     const city = this.cityRepository.create({
       id,
@@ -91,6 +123,7 @@ export class AdminService {
       useGradient,
       logoUrl,
       features,
+      neighborhoods,
     });
 
     const savedCity = await this.cityRepository.save(city);

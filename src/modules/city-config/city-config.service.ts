@@ -12,7 +12,19 @@ export interface CityConfig {
     primaryColor: string;
     secondaryColor?: string;
     useGradient: boolean;
-    logoUrl: string;
+    logoUrl?: string;
+  };
+  neighborhoods?: { id: string; name: string; points: [number, number][] }[];
+  usefulNumbers?: { label: string; phone: string; icon: string }[];
+  usefulLinks?: { label: string; url: string; icon: string }[];
+  wasteConfig?: {
+    services: {
+      type: string;
+      icon: string;
+      color: string;
+      days: number[];
+      time: string;
+    }[];
   };
 }
 
@@ -62,6 +74,12 @@ export class CityConfigService implements OnModuleInit {
     }
   }
 
+  async findAllActive(): Promise<Partial<City>[]> {
+    return this.cityRepository.find({
+      select: ['id', 'name', 'logoUrl'],
+    });
+  }
+
   async getCityConfig(cityId: string): Promise<CityConfig> {
     const city = await this.cityRepository.findOneBy({ id: cityId });
     if (!city) {
@@ -80,6 +98,10 @@ export class CityConfigService implements OnModuleInit {
         useGradient: city.useGradient,
         logoUrl: city.logoUrl,
       },
+      neighborhoods: city.neighborhoods || [],
+      usefulNumbers: city.usefulNumbers || [],
+      usefulLinks: city.usefulLinks || [],
+      wasteConfig: city.wasteConfig || { services: [] },
     };
   }
 

@@ -17,8 +17,8 @@ export class City {
   @Column({ name: 'use_gradient', default: false })
   useGradient!: boolean;
 
-  @Column({ name: 'logo_url' })
-  logoUrl!: string;
+  @Column({ name: 'logo_url', nullable: true })
+  logoUrl?: string;
 
   @Column('simple-array')
   features!: string[];
@@ -31,4 +31,24 @@ export class City {
     nullable: true,
   })
   boundary?: any;
+
+  @Column('simple-json', { nullable: true })
+  neighborhoods?: { id: string; name: string; points: [number, number][] }[];
+
+  @Column('simple-json', { name: 'useful_numbers', nullable: true })
+  usefulNumbers?: { label: string; phone: string; icon: string }[];
+
+  @Column('simple-json', { name: 'useful_links', nullable: true })
+  usefulLinks?: { label: string; url: string; icon: string }[];
+
+  @Column('simple-json', { name: 'waste_config', nullable: true })
+  wasteConfig?: {
+    services: {
+      type: string;
+      icon: string;
+      color: string;
+      days: number[]; // 0=Sunday, 1=Monday...
+      time: string; // "HH:mm"
+    }[];
+  };
 }

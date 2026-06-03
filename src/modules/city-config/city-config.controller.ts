@@ -5,6 +5,11 @@ import { CityConfigService, CityConfig } from './city-config.service';
 export class CityConfigController {
   constructor(private readonly cityConfigService: CityConfigService) {}
 
+  @Get()
+  async listCities() {
+    return this.cityConfigService.findAllActive();
+  }
+
   @Get('detect')
   async detectCity(
     @Query('lat', ParseFloatPipe) lat: number,

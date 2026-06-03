@@ -6,6 +6,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      DB_ENSURE_SCHEMA: "true"
       PORT: 3000
       DATABASE_HOST: postgres-prod
       DATABASE_PORT: 5432

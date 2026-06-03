@@ -34,6 +34,12 @@ export class User {
   @Index()
   cityId?: string;
 
+  @Column({ type: 'int', default: 0 })
+  points!: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  neighborhood?: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at!: Date;
 
