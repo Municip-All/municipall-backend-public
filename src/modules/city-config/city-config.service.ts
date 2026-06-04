@@ -3,7 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
+import { ContactMessage } from '../contact-messages/entities/contact-message.entity';
 import { City } from './entities/city.entity';
+
+const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
+const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 
 export interface CityContactConfig {
   email?: string;
@@ -35,15 +39,34 @@ export interface CityConfig {
   };
 }
 
+export type DashboardAlertSeverity = 'urgent' | 'high' | 'normal';
+export type DashboardAlertType = 'report' | 'contact';
+
+export interface DashboardAlert {
+  id: string;
+  type: DashboardAlertType;
+  severity: DashboardAlertSeverity;
+  title: string;
+  subtitle: string;
+  createdAt: string;
+  entityId: number;
+}
+
 export interface CityDashboardStats {
   satisfaction: number;
   satisfactionTrend: number;
   citizensCount: number;
   activeReportsCount: number;
+  pendingContactMessagesCount: number;
+  urgentReportsCount: number;
+  reportsInProgressCount: number;
+  pendingTotalCount: number;
+  urgentAlertsCount: number;
   reportsTrend: number;
   suggestionsCount: number;
   suggestionsTrend: number;
   trendData: { name: string; satisfaction: number }[];
+  alerts: DashboardAlert[];
 }
 
 @Injectable()
@@ -55,7 +78,46 @@ export class CityConfigService implements OnModuleInit {
     private readonly reportRepository: Repository<Report>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(ContactMessage)
+    private readonly contactMessageRepository: Repository<ContactMessage>,
   ) {}
+
+  private isUrgentContactMessage(message: ContactMessage): boolean {
+    const text = `${message.subject} ${message.body}`;
+    return URGENT_KEYWORDS.test(text);
+  }
+
+  private buildAlerts(
+    pendingReports: Report[],
+    pendingMessages: ContactMessage[],
+  ): DashboardAlert[] {
+    const reportAlerts: DashboardAlert[] = pendingReports.map((report) => {
+      const urgent = URGENT_REPORT_CATEGORIES.includes(report.category);
+      return {
+        id: `report-${report.id}`,
+        type: 'report',
+        severity: urgent ? 'urgent' : 'high',
+        title: `Signalement #${String(report.id).padStart(4, '0')} — ${report.category}`,
+        subtitle: report.description?.slice(0, 120) || 'Aucune description',
+        createdAt: report.createdAt.toISOString(),
+        entityId: report.id,
+      };
+    });
+
+    const messageAlerts: DashboardAlert[] = pendingMessages.map((message) => ({
+      id: `contact-${message.id}`,
+      type: 'contact',
+      severity: this.isUrgentContactMessage(message) ? 'urgent' : 'normal',
+      title: `Message — ${message.subject}`,
+      subtitle: message.body.slice(0, 120),
+      createdAt: message.createdAt.toISOString(),
+      entityId: message.id,
+    }));
+
+    return [...reportAlerts, ...messageAlerts].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
 
   async onModuleInit() {
     try {
@@ -139,19 +201,44 @@ export class CityConfigService implements OnModuleInit {
       where: { cityId, role: 'citizen' },
     });
 
-    const activeReportsCount = await this.reportRepository.count({
+    const pendingReports = await this.reportRepository.find({
       where: { tenantId: cityId, status: 'En attente' },
+      order: { createdAt: 'DESC' },
+      take: 30,
     });
 
-    // Mock trend data and others for now as we don't have historical data yet
+    const pendingMessages = await this.contactMessageRepository.find({
+      where: { tenantId: cityId, status: 'En attente' },
+      order: { createdAt: 'DESC' },
+      take: 30,
+    });
+
+    const reportsInProgressCount = await this.reportRepository.count({
+      where: { tenantId: cityId, status: 'En cours' },
+    });
+
+    const pendingContactMessagesCount = pendingMessages.length;
+    const activeReportsCount = pendingReports.length;
+    const urgentReportsCount = pendingReports.filter((r) =>
+      URGENT_REPORT_CATEGORIES.includes(r.category),
+    ).length;
+
+    const alerts = this.buildAlerts(pendingReports, pendingMessages);
+    const urgentAlertsCount = alerts.filter((a) => a.severity === 'urgent').length;
+
     return {
       satisfaction: 78,
       satisfactionTrend: 5,
       citizensCount,
       activeReportsCount,
+      pendingContactMessagesCount,
+      urgentReportsCount,
+      reportsInProgressCount,
+      pendingTotalCount: activeReportsCount + pendingContactMessagesCount,
+      urgentAlertsCount,
       reportsTrend: -12,
-      suggestionsCount: 312,
-      suggestionsTrend: 45,
+      suggestionsCount: pendingMessages.length,
+      suggestionsTrend: 0,
       trendData: [
         { name: 'Lun', satisfaction: 65 },
         { name: 'Mar', satisfaction: 68 },
@@ -161,6 +248,7 @@ export class CityConfigService implements OnModuleInit {
         { name: 'Sam', satisfaction: 77 },
         { name: 'Dim', satisfaction: 84 },
       ],
+      alerts,
     };
   }
 }

@@ -6,9 +6,10 @@ import { City } from './entities/city.entity';
 
 import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
+import { ContactMessage } from '../contact-messages/entities/contact-message.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([City, Report, User])],
+  imports: [TypeOrmModule.forFeature([City, Report, User, ContactMessage])],
   controllers: [CityConfigController],
   providers: [CityConfigService],
   exports: [CityConfigService],
