@@ -19,6 +19,8 @@ export interface CityContactConfig {
 export interface CityConfig {
   name: string;
   features: string[];
+  /** Texte contractuel affiché dans la politique de confidentialité (durées par commune) */
+  dataRetentionPolicy?: string;
   contact?: CityContactConfig;
   theme: {
     primaryColor: string;
@@ -168,6 +170,7 @@ export class CityConfigService implements OnModuleInit {
     return {
       name: city.name,
       features: city.features,
+      dataRetentionPolicy: city.dataRetentionPolicy || undefined,
       contact: {
         email: city.contactEmail || undefined,
         phone: city.contactPhone || undefined,

@@ -29,6 +29,10 @@ export class City {
   @Column({ name: 'contact_help_text', nullable: true })
   contactHelpText?: string;
 
+  /** Durées de conservation RGPD spécifiques au contrat avec la commune (affichées dans l'app) */
+  @Column({ name: 'data_retention_policy', type: 'text', nullable: true })
+  dataRetentionPolicy?: string;
+
   @Column('simple-array')
   features!: string[];
 
