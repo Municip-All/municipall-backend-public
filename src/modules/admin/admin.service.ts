@@ -14,6 +14,9 @@ export interface CreateCityData {
   secondaryColor?: string;
   useGradient?: boolean;
   logoUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactHelpText?: string;
   features?: string[];
   boundary?: unknown;
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];

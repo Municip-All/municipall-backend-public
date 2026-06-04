@@ -20,6 +20,15 @@ export class City {
   @Column({ name: 'logo_url', nullable: true })
   logoUrl?: string;
 
+  @Column({ name: 'contact_email', nullable: true })
+  contactEmail?: string;
+
+  @Column({ name: 'contact_phone', nullable: true })
+  contactPhone?: string;
+
+  @Column({ name: 'contact_help_text', nullable: true })
+  contactHelpText?: string;
+
   @Column('simple-array')
   features!: string[];
 

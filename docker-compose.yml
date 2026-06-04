@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 services:
   # Database with PostGIS extension for spatial queries
@@ -10,11 +10,12 @@ services:
       POSTGRES_USER: ${DATABASE_USER:-postgres}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-password}
     ports:
-      - "${DATABASE_PORT:-5432}:5432"
+      - '${DATABASE_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-municipall}"]
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-municipall}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,9 +24,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    command: ['redis-server', '--save', '60', '1', '--loglevel', 'warning']
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
 
@@ -37,7 +38,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@municipall.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "8080:80"
+      - '8080:80'
     depends_on:
       - postgres
 

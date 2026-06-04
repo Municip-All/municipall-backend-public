@@ -5,9 +5,16 @@ import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
 import { City } from './entities/city.entity';
 
+export interface CityContactConfig {
+  email?: string;
+  phone?: string;
+  helpText?: string;
+}
+
 export interface CityConfig {
   name: string;
   features: string[];
+  contact?: CityContactConfig;
   theme: {
     primaryColor: string;
     secondaryColor?: string;
@@ -92,6 +99,11 @@ export class CityConfigService implements OnModuleInit {
     return {
       name: city.name,
       features: city.features,
+      contact: {
+        email: city.contactEmail || undefined,
+        phone: city.contactPhone || undefined,
+        helpText: city.contactHelpText || undefined,
+      },
       theme: {
         primaryColor: city.primaryColor,
         secondaryColor: city.secondaryColor,
