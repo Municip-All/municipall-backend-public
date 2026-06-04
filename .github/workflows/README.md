@@ -6,12 +6,12 @@ Ce dépôt utilise le workflow `.github/workflows/deploy.yml` pour livrer automa
 
 Définissez les secrets suivants (communs à tous les environnements) :
 
-| Secret | Description |
-| --- | --- |
-| `VPS_HOST` | Nom d'hôte ou IP du VPS OVH. |
-| `VPS_USER` | Utilisateur SSH limité (ex. `deploy`). |
-| `SSH_KEY` | Clé privée OpenSSH utilisée par le workflow. |
-| `SSH_PORT` | Port SSH (défaut `22`). |
+| Secret     | Description                                  |
+| ---------- | -------------------------------------------- |
+| `VPS_HOST` | Nom d'hôte ou IP du VPS OVH.                 |
+| `VPS_USER` | Utilisateur SSH limité (ex. `deploy`).       |
+| `SSH_KEY`  | Clé privée OpenSSH utilisée par le workflow. |
+| `SSH_PORT` | Port SSH (défaut `22`).                      |
 
 ## 2. Fonctionnement du workflow
 

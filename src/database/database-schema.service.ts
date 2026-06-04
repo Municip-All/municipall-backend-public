@@ -97,17 +97,11 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
           continue;
         }
 
-        if (
-          upper.startsWith('CREATE INDEX') ||
-          upper.startsWith('CREATE UNIQUE INDEX')
-        ) {
+        if (upper.startsWith('CREATE INDEX') || upper.startsWith('CREATE UNIQUE INDEX')) {
           if (upper.includes('IF NOT EXISTS')) {
             await queryRunner.query(q, parameters);
           } else {
-            const safe = q.replace(
-              /^CREATE (UNIQUE )?INDEX /i,
-              'CREATE $1INDEX IF NOT EXISTS ',
-            );
+            const safe = q.replace(/^CREATE (UNIQUE )?INDEX /i, 'CREATE $1INDEX IF NOT EXISTS ');
             try {
               await queryRunner.query(safe, parameters);
             } catch (err) {

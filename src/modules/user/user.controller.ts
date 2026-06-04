@@ -6,6 +6,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UpdateAvatarDto } from './dto/update-avatar.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { UpdatePushTokenDto } from './dto/update-push-token.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -47,5 +48,11 @@ export class UserController {
   @ApiOperation({ summary: 'Get user stats' })
   async getStats(@Req() req: AuthenticatedRequest): Promise<any> {
     return this.userService.getStats(req.user.sub);
+  }
+
+  @Post('push-token')
+  @ApiOperation({ summary: 'Register Expo push token for mobile notifications' })
+  async registerPushToken(@Req() req: AuthenticatedRequest, @Body() body: UpdatePushTokenDto) {
+    return this.userService.updatePushToken(req.user.sub, body.expoPushToken);
   }
 }

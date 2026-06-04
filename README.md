@@ -8,21 +8,21 @@
 $ npm install
 ```
 
-  Rôle de chaque fichier
+Rôle de chaque fichier
 
-  ┌─────────────────┬──────────────────────────────────────┐
-  │     Fichier     │                 Rôle                 │
-  ├─────────────────┼──────────────────────────────────────┤
-  │ *.entity.ts     │ Définit la structure de la table SQL │
-  ├─────────────────┼──────────────────────────────────────┤
-  │ *.repository.ts │ Requêtes SQL (find, save, delete...) │
-  ├─────────────────┼──────────────────────────────────────┤
-  │ *.services.ts   │ Logique métier                       │
-  ├─────────────────┼──────────────────────────────────────┤
-  │ *.controller.ts │ Routes HTTP (GET, POST...)           │
-  ├─────────────────┼──────────────────────────────────────┤
-  │ *.module.ts     │ Regroupe tout + enregistre l'entity  │
-  └─────────────────┴──────────────────────────────────────┘
+┌─────────────────┬──────────────────────────────────────┐
+│ Fichier │ Rôle │
+├─────────────────┼──────────────────────────────────────┤
+│ _.entity.ts │ Définit la structure de la table SQL │
+├─────────────────┼──────────────────────────────────────┤
+│ _.repository.ts │ Requêtes SQL (find, save, delete...) │
+├─────────────────┼──────────────────────────────────────┤
+│ _.services.ts │ Logique métier │
+├─────────────────┼──────────────────────────────────────┤
+│ _.controller.ts │ Routes HTTP (GET, POST...) │
+├─────────────────┼──────────────────────────────────────┤
+│ \*.module.ts │ Regroupe tout + enregistre l'entity │
+└─────────────────┴──────────────────────────────────────┘
 
 ## Compile and run the project
 
@@ -89,6 +89,7 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
 # Municipall Monorepo
 
 Ce monorépo contient l'ensemble du projet Municipall, incluant le backend API et la configuration de la base de données.
@@ -124,6 +125,7 @@ npm run setup
 ### Backend (`packages/backend`)
 
 API NestJS avec les modules suivants :
+
 - **Users** : Gestion des utilisateurs
 - **Reports** : Gestion des signalements
 
@@ -152,6 +154,7 @@ npm run backend:lint
 ### Database (`packages/database`)
 
 Configuration PostgreSQL avec Docker Compose incluant :
+
 - PostgreSQL (port 5432)
 - pgAdmin (port 8080)
 - Scripts d'initialisation SQL
@@ -184,6 +187,7 @@ npm run dev
 ### Connexion à la base de données
 
 **PostgreSQL**
+
 - Host: `localhost`
 - Port: `5432`
 - Database: `my_database`
@@ -191,6 +195,7 @@ npm run dev
 - Password: `secret`
 
 **pgAdmin**
+
 - URL: http://localhost:8080
 - Email: `admin@admin.com`
 - Password: `admin`
@@ -200,6 +205,7 @@ npm run dev
 ### Schéma
 
 #### Table `users`
+
 - `id`: SERIAL PRIMARY KEY
 - `name`: VARCHAR(50)
 - `email`: VARCHAR(50) UNIQUE
@@ -208,6 +214,7 @@ npm run dev
 - `updated_at`: TIMESTAMP
 
 #### Table `report`
+
 - `id`: SERIAL PRIMARY KEY
 - `user_id`: INT (FK vers users)
 - `content`: VARCHAR(1000)

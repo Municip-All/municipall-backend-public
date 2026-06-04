@@ -17,6 +17,7 @@ import { WeatherModule } from './modules/weather/weather.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ConstructionWorksModule } from './modules/construction-works/construction-works.module';
 import { EventsModule } from './modules/events/events.module';
+import { ContactMessagesModule } from './modules/contact-messages/contact-messages.module';
 import { DatabaseModule } from './database/database.module';
 
 @Module({
@@ -51,6 +52,7 @@ import { DatabaseModule } from './database/database.module';
     AdminModule,
     ConstructionWorksModule,
     EventsModule,
+    ContactMessagesModule,
   ],
   controllers: [AppController],
   providers: [

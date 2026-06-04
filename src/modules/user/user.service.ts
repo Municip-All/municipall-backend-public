@@ -54,6 +54,13 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
+  async updatePushToken(userId: number, expoPushToken: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) throw new Error('User not found');
+    user.expoPushToken = expoPushToken;
+    return this.userRepository.save(user);
+  }
+
   async getStats(userId: number): Promise<any> {
     const user = await this.findById(userId);
     if (!user) throw new Error('User not found');

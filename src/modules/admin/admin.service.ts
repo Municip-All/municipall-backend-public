@@ -14,6 +14,10 @@ export interface CreateCityData {
   secondaryColor?: string;
   useGradient?: boolean;
   logoUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactHelpText?: string;
+  dataRetentionPolicy?: string;
   features?: string[];
   boundary?: unknown;
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];
@@ -92,6 +96,7 @@ export class AdminService {
             'useGradient',
             'logoUrl',
             'features',
+            'dataRetentionPolicy',
           ],
           order: { name: 'ASC' },
         });
@@ -113,6 +118,10 @@ export class AdminService {
       features,
       boundary,
       neighborhoods,
+      dataRetentionPolicy,
+      contactEmail,
+      contactPhone,
+      contactHelpText,
     } = data;
 
     const city = this.cityRepository.create({
@@ -124,6 +133,10 @@ export class AdminService {
       logoUrl,
       features,
       neighborhoods,
+      dataRetentionPolicy,
+      contactEmail,
+      contactPhone,
+      contactHelpText,
     });
 
     const savedCity = await this.cityRepository.save(city);
