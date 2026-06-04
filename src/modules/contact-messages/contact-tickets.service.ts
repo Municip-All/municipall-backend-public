@@ -240,7 +240,7 @@ export class ContactTicketsService implements OnModuleInit {
       order: { createdAt: 'ASC' },
     });
 
-    const citizenName = await this.resolveSenderName(ticket.userId);
+    const citizenName = await this.resolveSenderDisplayName(ticket.userId, 'citizen');
 
     return {
       id: ticket.id,
