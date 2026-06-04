@@ -51,8 +51,8 @@ export class ReportsService {
       .returning('id')
       .execute();
 
-    const rawId = insertResult.raw[0]?.id ?? insertResult.identifiers[0]?.id;
-    const id = Number(rawId);
+    const insertedRow = insertResult.identifiers[0] as { id: number | string } | undefined;
+    const id = insertedRow?.id != null ? Number(insertedRow.id) : NaN;
     if (!Number.isFinite(id)) {
       throw new BadRequestException('Échec de la création du signalement.');
     }
