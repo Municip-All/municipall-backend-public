@@ -97,28 +97,34 @@ export class ContactTicketsService implements OnModuleInit {
     }
   }
 
-  private async resolveSenderName(userId: number): Promise<string> {
+  private async resolveSenderDisplayName(
+    userId: number,
+    role: TicketMessageRole,
+  ): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: ['name', 'surname', 'email'],
     });
-    if (!user) return 'Utilisateur';
+    if (!user) return role === 'agent' ? 'Mairie' : 'Utilisateur';
     const full = `${user.name || ''} ${user.surname || ''}`.trim();
-    return full || user.email;
+    const person = full || user.email;
+    if (role === 'agent') return `Mairie - ${person}`;
+    return person;
   }
 
   private async mapMessages(messages: ContactTicketMessage[]): Promise<TicketMessageView[]> {
-    const names = new Map<number, string>();
+    const names = new Map<string, string>();
     const result: TicketMessageView[] = [];
     for (const msg of messages) {
-      if (!names.has(msg.senderId)) {
-        names.set(msg.senderId, await this.resolveSenderName(msg.senderId));
+      const cacheKey = `${msg.senderId}:${msg.senderRole}`;
+      if (!names.has(cacheKey)) {
+        names.set(cacheKey, await this.resolveSenderDisplayName(msg.senderId, msg.senderRole));
       }
       result.push({
         id: msg.id,
         senderId: msg.senderId,
         senderRole: msg.senderRole,
-        senderName: names.get(msg.senderId) ?? 'Utilisateur',
+        senderName: names.get(cacheKey) ?? 'Utilisateur',
         body: msg.body,
         createdAt: msg.createdAt.toISOString(),
       });

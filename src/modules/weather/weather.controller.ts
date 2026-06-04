@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
 import { WeatherService } from './weather.service';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
@@ -9,7 +9,16 @@ export class WeatherController {
 
   @Get()
   @ApiOperation({ summary: 'Get current weather by coordinates' })
-  getWeather(@Query('lat') lat: number, @Query('lon') lon: number) {
-    return this.weatherService.getWeather(lat, lon);
+  async getWeather(@Query('lat') latRaw: string, @Query('lon') lonRaw: string) {
+    const lat = Number(latRaw);
+    const lon = Number(lonRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      throw new BadRequestException('lat et lon sont requis');
+    }
+    const result = await this.weatherService.getWeather(lat, lon);
+    if ('error' in result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
   }
 }
