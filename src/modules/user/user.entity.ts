@@ -40,6 +40,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   neighborhood?: string;
 
+  @Column({ type: 'varchar', nullable: true, name: 'expo_push_token' })
+  expoPushToken?: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at!: Date;
 

@@ -97,10 +97,7 @@ export class ContactTicketsService implements OnModuleInit {
     }
   }
 
-  private async resolveSenderDisplayName(
-    userId: number,
-    role: TicketMessageRole,
-  ): Promise<string> {
+  private async resolveSenderDisplayName(userId: number, role: TicketMessageRole): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: ['name', 'surname', 'email'],
@@ -139,7 +136,10 @@ export class ContactTicketsService implements OnModuleInit {
     });
   }
 
-  private toListItem(ticket: ContactTicket, last?: ContactTicketMessage | null): ContactTicketListItem {
+  private toListItem(
+    ticket: ContactTicket,
+    last?: ContactTicketMessage | null,
+  ): ContactTicketListItem {
     return {
       id: ticket.id,
       subject: ticket.subject,
