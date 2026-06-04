@@ -1,0 +1,317 @@
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ContactTicket } from './entities/contact-ticket.entity';
+import { ContactTicketMessage, TicketMessageRole } from './entities/contact-ticket-message.entity';
+import { ContactMessage } from './entities/contact-message.entity';
+import { CreateContactMessageDto } from './dto/create-contact-message.dto';
+import { ReplyContactTicketDto } from './dto/reply-contact-ticket.dto';
+import { User } from '../user/user.entity';
+
+const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
+const CLOSED_STATUS = 'Clôturé';
+
+export interface TicketMessageView {
+  id: number;
+  senderId: number;
+  senderRole: TicketMessageRole;
+  senderName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface ContactTicketListItem {
+  id: number;
+  subject: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessage?: {
+    body: string;
+    senderRole: TicketMessageRole;
+    createdAt: string;
+  };
+}
+
+export interface ContactTicketDetail {
+  id: number;
+  subject: string;
+  status: string;
+  userId: number;
+  citizenName: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  messages: TicketMessageView[];
+}
+
+@Injectable()
+export class ContactTicketsService implements OnModuleInit {
+  constructor(
+    @InjectRepository(ContactTicket)
+    private readonly ticketRepository: Repository<ContactTicket>,
+    @InjectRepository(ContactTicketMessage)
+    private readonly messageRepository: Repository<ContactTicketMessage>,
+    @InjectRepository(ContactMessage)
+    private readonly legacyRepository: Repository<ContactMessage>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async onModuleInit() {
+    try {
+      const ticketCount = await this.ticketRepository.count();
+      if (ticketCount > 0) return;
+
+      const legacy = await this.legacyRepository.find({ order: { createdAt: 'ASC' } });
+      for (const row of legacy) {
+        const ticket = await this.ticketRepository.save(
+          this.ticketRepository.create({
+            tenantId: row.tenantId,
+            userId: row.userId,
+            subject: row.subject,
+            status: row.status === 'Résolu' ? CLOSED_STATUS : row.status,
+            closedAt: row.status === 'Résolu' ? row.updatedAt : undefined,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          }),
+        );
+        await this.messageRepository.save(
+          this.messageRepository.create({
+            ticketId: ticket.id,
+            senderId: row.userId,
+            senderRole: 'citizen',
+            body: row.body,
+            createdAt: row.createdAt,
+          }),
+        );
+      }
+    } catch {
+      // Legacy table may not exist yet
+    }
+  }
+
+  private async resolveSenderName(userId: number): Promise<string> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['name', 'surname', 'email'],
+    });
+    if (!user) return 'Utilisateur';
+    const full = `${user.name || ''} ${user.surname || ''}`.trim();
+    return full || user.email;
+  }
+
+  private async mapMessages(messages: ContactTicketMessage[]): Promise<TicketMessageView[]> {
+    const names = new Map<number, string>();
+    const result: TicketMessageView[] = [];
+    for (const msg of messages) {
+      if (!names.has(msg.senderId)) {
+        names.set(msg.senderId, await this.resolveSenderName(msg.senderId));
+      }
+      result.push({
+        id: msg.id,
+        senderId: msg.senderId,
+        senderRole: msg.senderRole,
+        senderName: names.get(msg.senderId) ?? 'Utilisateur',
+        body: msg.body,
+        createdAt: msg.createdAt.toISOString(),
+      });
+    }
+    return result;
+  }
+
+  private async getLastMessage(ticketId: number) {
+    return this.messageRepository.findOne({
+      where: { ticketId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  private toListItem(ticket: ContactTicket, last?: ContactTicketMessage | null): ContactTicketListItem {
+    return {
+      id: ticket.id,
+      subject: ticket.subject,
+      status: ticket.status,
+      createdAt: ticket.createdAt.toISOString(),
+      updatedAt: ticket.updatedAt.toISOString(),
+      lastMessage: last
+        ? {
+            body: last.body,
+            senderRole: last.senderRole,
+            createdAt: last.createdAt.toISOString(),
+          }
+        : undefined,
+    };
+  }
+
+  async create(
+    tenantId: string,
+    userId: number,
+    data: CreateContactMessageDto,
+  ): Promise<ContactTicketDetail> {
+    const ticket = await this.ticketRepository.save(
+      this.ticketRepository.create({
+        tenantId,
+        userId,
+        subject: data.subject.trim(),
+        status: 'En attente',
+      }),
+    );
+
+    await this.messageRepository.save(
+      this.messageRepository.create({
+        ticketId: ticket.id,
+        senderId: userId,
+        senderRole: 'citizen',
+        body: data.body.trim(),
+      }),
+    );
+
+    return this.findById(ticket.id, tenantId, userId, 'citizen');
+  }
+
+  async findByUser(tenantId: string, userId: number): Promise<ContactTicketListItem[]> {
+    const tickets = await this.ticketRepository.find({
+      where: { tenantId, userId },
+      order: { updatedAt: 'DESC' },
+      take: 50,
+    });
+
+    return Promise.all(
+      tickets.map(async (ticket) => this.toListItem(ticket, await this.getLastMessage(ticket.id))),
+    );
+  }
+
+  async findAllForTenant(tenantId: string): Promise<ContactTicketListItem[]> {
+    const tickets = await this.ticketRepository.find({
+      where: { tenantId },
+      order: { updatedAt: 'DESC' },
+      take: 100,
+    });
+
+    return Promise.all(
+      tickets.map(async (ticket) => this.toListItem(ticket, await this.getLastMessage(ticket.id))),
+    );
+  }
+
+  async findPendingForTenant(tenantId: string): Promise<ContactTicket[]> {
+    return this.ticketRepository
+      .createQueryBuilder('ticket')
+      .where('ticket.tenant_id = :tenantId', { tenantId })
+      .andWhere('ticket.status IN (:...statuses)', { statuses: ['En attente', 'En cours'] })
+      .orderBy('ticket.updated_at', 'DESC')
+      .take(30)
+      .getMany();
+  }
+
+  isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
+    const text = `${ticket.subject} ${lastBody ?? ''}`;
+    return URGENT_KEYWORDS.test(text);
+  }
+
+  async findById(
+    id: number,
+    tenantId: string,
+    userId: number,
+    role: string,
+  ): Promise<ContactTicketDetail> {
+    const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
+    if (!ticket) throw new NotFoundException('Conversation introuvable');
+
+    const isAgent = role === 'agent' || role === 'admin';
+    if (!isAgent && ticket.userId !== userId) {
+      throw new ForbiddenException('Accès non autorisé à cette conversation');
+    }
+
+    const messages = await this.messageRepository.find({
+      where: { ticketId: id },
+      order: { createdAt: 'ASC' },
+    });
+
+    const citizenName = await this.resolveSenderName(ticket.userId);
+
+    return {
+      id: ticket.id,
+      subject: ticket.subject,
+      status: ticket.status,
+      userId: ticket.userId,
+      citizenName,
+      createdAt: ticket.createdAt.toISOString(),
+      updatedAt: ticket.updatedAt.toISOString(),
+      closedAt: ticket.closedAt?.toISOString(),
+      messages: await this.mapMessages(messages),
+    };
+  }
+
+  async reply(
+    id: number,
+    tenantId: string,
+    senderId: number,
+    role: string,
+    data: ReplyContactTicketDto,
+  ): Promise<ContactTicketDetail> {
+    const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
+    if (!ticket) throw new NotFoundException('Conversation introuvable');
+
+    if (ticket.status === CLOSED_STATUS) {
+      throw new BadRequestException('Cette conversation est clôturée');
+    }
+
+    const isAgent = role === 'agent' || role === 'admin';
+    if (!isAgent && ticket.userId !== senderId) {
+      throw new ForbiddenException('Vous ne pouvez pas répondre à cette conversation');
+    }
+
+    const senderRole: TicketMessageRole = isAgent ? 'agent' : 'citizen';
+
+    await this.messageRepository.save(
+      this.messageRepository.create({
+        ticketId: ticket.id,
+        senderId,
+        senderRole,
+        body: data.body.trim(),
+      }),
+    );
+
+    if (isAgent && ticket.status === 'En attente') {
+      ticket.status = 'En cours';
+      await this.ticketRepository.save(ticket);
+    } else if (!isAgent) {
+      ticket.updatedAt = new Date();
+      await this.ticketRepository.save(ticket);
+    }
+
+    return this.findById(id, tenantId, senderId, role);
+  }
+
+  async close(id: number, tenantId: string, agentId: number): Promise<ContactTicketDetail> {
+    const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
+    if (!ticket) throw new NotFoundException('Conversation introuvable');
+
+    if (ticket.status === CLOSED_STATUS) {
+      return this.findById(id, tenantId, agentId, 'agent');
+    }
+
+    ticket.status = CLOSED_STATUS;
+    ticket.closedAt = new Date();
+    ticket.closedByUserId = agentId;
+    await this.ticketRepository.save(ticket);
+
+    await this.messageRepository.save(
+      this.messageRepository.create({
+        ticketId: ticket.id,
+        senderId: agentId,
+        senderRole: 'agent',
+        body: '— Conversation clôturée par la mairie. Merci de nous avoir contactés.',
+      }),
+    );
+
+    return this.findById(id, tenantId, agentId, 'agent');
+  }
+}

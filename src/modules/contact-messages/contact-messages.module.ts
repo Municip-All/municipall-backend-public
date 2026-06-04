@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ContactTicket } from './entities/contact-ticket.entity';
+import { ContactTicketMessage } from './entities/contact-ticket-message.entity';
 import { ContactMessage } from './entities/contact-message.entity';
-import { ContactMessagesController } from './contact-messages.controller';
-import { ContactMessagesService } from './contact-messages.service';
+import { ContactTicketsController, ContactMessagesLegacyController } from './contact-messages.controller';
+import { ContactTicketsService } from './contact-tickets.service';
+import { User } from '../user/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ContactMessage])],
-  controllers: [ContactMessagesController],
-  providers: [ContactMessagesService],
-  exports: [ContactMessagesService],
+  imports: [
+    TypeOrmModule.forFeature([ContactTicket, ContactTicketMessage, ContactMessage, User]),
+  ],
+  controllers: [ContactTicketsController, ContactMessagesLegacyController],
+  providers: [ContactTicketsService],
+  exports: [ContactTicketsService],
 })
 export class ContactMessagesModule {}

@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
-import { ContactMessage } from '../contact-messages/entities/contact-message.entity';
+import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
+import { ContactTicketMessage } from '../contact-messages/entities/contact-ticket-message.entity';
 import { City } from './entities/city.entity';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
@@ -78,18 +79,21 @@ export class CityConfigService implements OnModuleInit {
     private readonly reportRepository: Repository<Report>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(ContactMessage)
-    private readonly contactMessageRepository: Repository<ContactMessage>,
+    @InjectRepository(ContactTicket)
+    private readonly contactTicketRepository: Repository<ContactTicket>,
+    @InjectRepository(ContactTicketMessage)
+    private readonly contactTicketMessageRepository: Repository<ContactTicketMessage>,
   ) {}
 
-  private isUrgentContactMessage(message: ContactMessage): boolean {
-    const text = `${message.subject} ${message.body}`;
+  private isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
+    const text = `${ticket.subject} ${lastBody ?? ''}`;
     return URGENT_KEYWORDS.test(text);
   }
 
   private buildAlerts(
     pendingReports: Report[],
-    pendingMessages: ContactMessage[],
+    pendingTickets: ContactTicket[],
+    lastBodies: Map<number, string>,
   ): DashboardAlert[] {
     const reportAlerts: DashboardAlert[] = pendingReports.map((report) => {
       const urgent = URGENT_REPORT_CATEGORIES.includes(report.category);
@@ -104,15 +108,18 @@ export class CityConfigService implements OnModuleInit {
       };
     });
 
-    const messageAlerts: DashboardAlert[] = pendingMessages.map((message) => ({
-      id: `contact-${message.id}`,
-      type: 'contact',
-      severity: this.isUrgentContactMessage(message) ? 'urgent' : 'normal',
-      title: `Message — ${message.subject}`,
-      subtitle: message.body.slice(0, 120),
-      createdAt: message.createdAt.toISOString(),
-      entityId: message.id,
-    }));
+    const messageAlerts: DashboardAlert[] = pendingTickets.map((ticket) => {
+      const lastBody = lastBodies.get(ticket.id) ?? '';
+      return {
+        id: `contact-${ticket.id}`,
+        type: 'contact',
+        severity: this.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
+        title: `Conversation — ${ticket.subject}`,
+        subtitle: lastBody.slice(0, 120) || 'Nouvelle conversation',
+        createdAt: ticket.updatedAt.toISOString(),
+        entityId: ticket.id,
+      };
+    });
 
     return [...reportAlerts, ...messageAlerts].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -207,23 +214,34 @@ export class CityConfigService implements OnModuleInit {
       take: 30,
     });
 
-    const pendingMessages = await this.contactMessageRepository.find({
-      where: { tenantId: cityId, status: 'En attente' },
-      order: { createdAt: 'DESC' },
-      take: 30,
-    });
+    const pendingTickets = await this.contactTicketRepository
+      .createQueryBuilder('ticket')
+      .where('ticket.tenant_id = :cityId', { cityId })
+      .andWhere('ticket.status IN (:...statuses)', { statuses: ['En attente', 'En cours'] })
+      .orderBy('ticket.updated_at', 'DESC')
+      .take(30)
+      .getMany();
+
+    const lastBodies = new Map<number, string>();
+    for (const ticket of pendingTickets) {
+      const last = await this.contactTicketMessageRepository.findOne({
+        where: { ticketId: ticket.id },
+        order: { createdAt: 'DESC' },
+      });
+      if (last) lastBodies.set(ticket.id, last.body);
+    }
 
     const reportsInProgressCount = await this.reportRepository.count({
       where: { tenantId: cityId, status: 'En cours' },
     });
 
-    const pendingContactMessagesCount = pendingMessages.length;
+    const pendingContactMessagesCount = pendingTickets.length;
     const activeReportsCount = pendingReports.length;
     const urgentReportsCount = pendingReports.filter((r) =>
       URGENT_REPORT_CATEGORIES.includes(r.category),
     ).length;
 
-    const alerts = this.buildAlerts(pendingReports, pendingMessages);
+    const alerts = this.buildAlerts(pendingReports, pendingTickets, lastBodies);
     const urgentAlertsCount = alerts.filter((a) => a.severity === 'urgent').length;
 
     return {
@@ -237,7 +255,7 @@ export class CityConfigService implements OnModuleInit {
       pendingTotalCount: activeReportsCount + pendingContactMessagesCount,
       urgentAlertsCount,
       reportsTrend: -12,
-      suggestionsCount: pendingMessages.length,
+      suggestionsCount: pendingTickets.length,
       suggestionsTrend: 0,
       trendData: [
         { name: 'Lun', satisfaction: 65 },
