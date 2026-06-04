@@ -25,11 +25,12 @@ export class ReportsController {
   @ApiOperation({ summary: 'Submit a new report' })
   @ApiResponse({ status: 201, description: 'Report successfully created.' })
   async createReport(
-    @Req() req: Request & { tenantId?: string },
+    @Req() req: Request & { tenantId?: string; user?: { sub: number } },
     @Body() reportData: CreateReportDto,
   ) {
     const tenantId = req.tenantId ?? 'city-1'; // Fallback for dev
-    return this.reportsService.create(tenantId, reportData);
+    const userId = req.user?.sub ?? reportData.userId;
+    return this.reportsService.create(tenantId, { ...reportData, userId });
   }
 
   @Get()
