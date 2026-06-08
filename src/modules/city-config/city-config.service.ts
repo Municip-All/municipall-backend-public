@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
@@ -6,6 +6,7 @@ import { User } from '../user/user.entity';
 import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
 import { ContactTicketMessage } from '../contact-messages/entities/contact-ticket-message.entity';
 import { City } from './entities/city.entity';
+import { AuditService } from '../audit/audit.service';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
@@ -85,6 +86,7 @@ export class CityConfigService implements OnModuleInit {
     private readonly contactTicketRepository: Repository<ContactTicket>,
     @InjectRepository(ContactTicketMessage)
     private readonly contactTicketMessageRepository: Repository<ContactTicketMessage>,
+    private readonly auditService: AuditService,
   ) {}
 
   private isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
@@ -271,5 +273,50 @@ export class CityConfigService implements OnModuleInit {
       ],
       alerts,
     };
+  }
+
+  async updateCityConfig(
+    cityId: string,
+    data: Record<string, unknown>,
+    actorUserId?: number,
+  ): Promise<City> {
+    const city = await this.cityRepository.findOneBy({ id: cityId });
+    if (!city) {
+      throw new NotFoundException('Ville introuvable');
+    }
+
+    const patch: Partial<City> = {};
+    if (typeof data.name === 'string') patch.name = data.name;
+    if (Array.isArray(data.features)) patch.features = data.features as string[];
+    if (typeof data.dataRetentionPolicy === 'string') {
+      patch.dataRetentionPolicy = data.dataRetentionPolicy;
+    }
+    if (typeof data.contactEmail === 'string') patch.contactEmail = data.contactEmail;
+    if (typeof data.contactPhone === 'string') patch.contactPhone = data.contactPhone;
+    if (typeof data.contactHelpText === 'string') patch.contactHelpText = data.contactHelpText;
+    if (typeof data.primaryColor === 'string') patch.primaryColor = data.primaryColor;
+    if (typeof data.secondaryColor === 'string') patch.secondaryColor = data.secondaryColor;
+    if (typeof data.useGradient === 'boolean') patch.useGradient = data.useGradient;
+    if (typeof data.logoUrl === 'string') patch.logoUrl = data.logoUrl;
+    if (Array.isArray(data.neighborhoods)) {
+      patch.neighborhoods = data.neighborhoods as City['neighborhoods'];
+    }
+    if (data.wasteConfig && typeof data.wasteConfig === 'object') {
+      patch.wasteConfig = data.wasteConfig as City['wasteConfig'];
+    }
+
+    await this.cityRepository.update(cityId, patch);
+
+    if (actorUserId) {
+      await this.auditService.log({
+        tenantId: cityId,
+        userId: actorUserId,
+        action: 'city.config_updated',
+        resourceType: 'city',
+        metadata: { fields: Object.keys(patch) },
+      });
+    }
+
+    return this.cityRepository.findOneByOrFail({ id: cityId });
   }
 }

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './core/auth/auth.module';
@@ -19,10 +19,17 @@ import { ConstructionWorksModule } from './modules/construction-works/constructi
 import { EventsModule } from './modules/events/events.module';
 import { ContactMessagesModule } from './modules/contact-messages/contact-messages.module';
 import { DatabaseModule } from './database/database.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { JwtAuthGuard } from './core/guards/jwt-auth.guard';
+import { PermissionsGuard } from './core/guards/permissions.guard';
+import { TenantGuard } from './core/guards/tenant.guard';
 
 @Module({
   imports: [
     DatabaseModule,
+    AuditModule,
+    StaffModule,
     ConfigModule.forRoot({ isGlobal: true }),
     BullModule.forRoot({
       connection: {
@@ -57,6 +64,9 @@ import { DatabaseModule } from './database/database.module';
   controllers: [AppController],
   providers: [
     AppService,
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_GUARD, useClass: TenantGuard },
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantInterceptor,

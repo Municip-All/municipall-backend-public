@@ -14,7 +14,7 @@ async function bootstrap() {
   app.enableCors({
     origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Accept, Authorization, x-tenant-id',
+    allowedHeaders: 'Content-Type, Accept, Authorization, x-tenant-id, x-platform-admin-key',
   });
 
   // Global prefixes and pipes

@@ -1,12 +1,13 @@
-import { Controller, Post, Get, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, BadRequestException } from '@nestjs/common';
 import { Request } from 'express';
 import { UserService } from './user.service';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UpdateAvatarDto } from './dto/update-avatar.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdatePushTokenDto } from './dto/update-push-token.dto';
+import { RequirePermissions } from '../../core/decorators/require-permissions.decorator';
+import { Permission } from '../../core/auth/permissions';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -19,10 +20,10 @@ interface AuthenticatedRequest extends Request {
 @ApiTags('users')
 @ApiBearerAuth()
 @Controller('users')
-@UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @RequirePermissions(Permission.PROFILE_WRITE)
   @Post('avatar')
   @ApiOperation({ summary: 'Update user avatar' })
   async updateAvatar(@Req() req: AuthenticatedRequest, @Body() body: UpdateAvatarDto) {
@@ -32,24 +33,28 @@ export class UserController {
     return this.userService.updateAvatar(req.user.sub, body.avatarUrl);
   }
 
+  @RequirePermissions(Permission.PROFILE_WRITE)
   @Post('profile')
   @ApiOperation({ summary: 'Update user profile' })
   async updateProfile(@Req() req: AuthenticatedRequest, @Body() body: UpdateProfileDto) {
     return this.userService.updateProfile(req.user.sub, body);
   }
 
+  @RequirePermissions(Permission.PROFILE_WRITE)
   @Post('password')
   @ApiOperation({ summary: 'Update user password' })
   async updatePassword(@Req() req: AuthenticatedRequest, @Body() body: UpdatePasswordDto) {
     return this.userService.updatePassword(req.user.sub, body);
   }
 
+  @RequirePermissions(Permission.PROFILE_READ)
   @Get('stats')
   @ApiOperation({ summary: 'Get user stats' })
-  async getStats(@Req() req: AuthenticatedRequest): Promise<any> {
+  async getStats(@Req() req: AuthenticatedRequest): Promise<unknown> {
     return this.userService.getStats(req.user.sub);
   }
 
+  @RequirePermissions(Permission.PROFILE_WRITE)
   @Post('push-token')
   @ApiOperation({ summary: 'Register Expo push token for mobile notifications' })
   async registerPushToken(@Req() req: AuthenticatedRequest, @Body() body: UpdatePushTokenDto) {

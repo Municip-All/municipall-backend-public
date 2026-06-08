@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Body,
-  UseGuards,
   Req,
   Patch,
   Param,
@@ -14,30 +13,33 @@ import { Request } from 'express';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ReplyReportDto } from './dto/reply-report.dto';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { RequirePermissions } from '../../core/decorators/require-permissions.decorator';
+import { Permission } from '../../core/auth/permissions';
+import { Public } from '../../core/decorators/public.decorator';
 
 interface ReportRequest extends Request {
   tenantId?: string;
-  user?: { sub: number; role?: string };
+  user?: { sub: number; role?: string; cityId?: string };
 }
 
 @ApiTags('reports')
+@ApiBearerAuth()
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  @RequirePermissions(Permission.REPORTS_CREATE)
   @Post()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Submit a new report' })
   @ApiResponse({ status: 201, description: 'Report successfully created.' })
   async createReport(@Req() req: ReportRequest, @Body() reportData: CreateReportDto) {
     const tenantId = req.tenantId ?? 'city-1';
     const userId = req.user?.sub ?? reportData.userId;
-    return this.reportsService.create(tenantId, { ...reportData, userId });
+    return this.reportsService.create(tenantId, { ...reportData, userId }, userId);
   }
 
+  @RequirePermissions(Permission.REPORTS_READ)
   @Get()
   @ApiOperation({ summary: 'Get all reports for the current city' })
   async getAll(@Req() req: ReportRequest) {
@@ -45,12 +47,14 @@ export class ReportsController {
     return this.reportsService.findAll(tenantId);
   }
 
+  @Public()
   @Get('clustered')
   @ApiOperation({ summary: 'Get clustered reports for map view' })
   async getClustered(@Body() bounds: unknown) {
     return this.reportsService.getClusteredReports(bounds);
   }
 
+  @RequirePermissions(Permission.REPORTS_READ)
   @Get(':id')
   @ApiOperation({ summary: 'Get report detail with citizen info and messages' })
   async getDetail(@Req() req: ReportRequest, @Param('id', ParseIntPipe) id: number) {
@@ -58,9 +62,8 @@ export class ReportsController {
     return this.reportsService.findDetail(tenantId, id);
   }
 
+  @RequirePermissions(Permission.REPORTS_REPLY)
   @Post(':id/messages')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Reply to a report (agent or citizen)' })
   async reply(
     @Req() req: ReportRequest,
@@ -70,16 +73,13 @@ export class ReportsController {
     const tenantId = req.tenantId ?? 'city-1';
     const userId = req.user?.sub;
     if (!userId) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
     }
-    const userRole = req.user?.role?.toLowerCase() ?? '';
-    const role = userRole === 'agent' || userRole === 'admin' ? 'agent' : 'citizen';
-    return this.reportsService.addMessage(tenantId, id, userId, role, body.body);
+    return this.reportsService.addMessage(tenantId, id, userId, body.body);
   }
 
+  @RequirePermissions(Permission.REPORTS_STATUS)
   @Patch(':id/status')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update report status' })
   async updateStatus(
     @Req() req: ReportRequest,
@@ -87,6 +87,10 @@ export class ReportsController {
     @Body('status') status: string,
   ) {
     const tenantId = req.tenantId ?? 'city-1';
-    return this.reportsService.updateStatus(id, status, tenantId);
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
+    }
+    return this.reportsService.updateStatus(id, status, tenantId, userId);
   }
 }

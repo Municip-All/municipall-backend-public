@@ -11,6 +11,8 @@ import { ReportMessage, ReportMessageRole } from './entities/report-message.enti
 import { CreateReportDto } from './dto/create-report.dto';
 import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
+import { resolveReportSenderRole } from '../../core/auth/roles';
+import { AuditService } from '../audit/audit.service';
 
 export interface ReportMessageView {
   id: number;
@@ -68,9 +70,10 @@ export class ReportsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
+    private readonly auditService: AuditService,
   ) {}
 
-  async create(tenantId: string, data: CreateReportDto): Promise<Report> {
+  async create(tenantId: string, data: CreateReportDto, actorUserId?: number): Promise<Report> {
     const lat = Number(data.lat);
     const lon = Number(data.lon);
 
@@ -116,6 +119,17 @@ export class ReportsService {
     }
 
     const savedReport = await this.reportRepository.findOneByOrFail({ id });
+
+    if (actorUserId) {
+      await this.auditService.log({
+        tenantId,
+        userId: actorUserId,
+        action: 'report.created',
+        resourceType: 'report',
+        resourceId: savedReport.id,
+        metadata: { category: savedReport.category },
+      });
+    }
 
     if (data.userId) {
       try {
@@ -239,9 +253,22 @@ export class ReportsService {
     tenantId: string,
     reportId: number,
     senderId: number,
-    senderRole: ReportMessageRole,
     body: string,
   ): Promise<ReportDetailView> {
+    const sender = await this.userRepository.findOne({
+      where: { id: senderId },
+      select: ['id', 'role', 'cityId'],
+    });
+    if (!sender) {
+      throw new ForbiddenException('Utilisateur introuvable.');
+    }
+
+    const senderRole = resolveReportSenderRole(sender.role);
+
+    if (senderRole === 'agent' && sender.cityId && sender.cityId !== tenantId) {
+      throw new ForbiddenException("Vous n'êtes pas autorisé pour cette ville.");
+    }
+
     const report = await this.reportRepository.findOneBy({ id: reportId, tenantId });
     if (!report) {
       throw new NotFoundException('Signalement introuvable');
@@ -250,7 +277,11 @@ export class ReportsService {
       throw new BadRequestException('Ce signalement est clôturé.');
     }
 
-    if (senderRole === 'citizen' && report.userId !== senderId) {
+    if (
+      senderRole === 'citizen' &&
+      report.userId != null &&
+      Number(report.userId) !== Number(senderId)
+    ) {
       throw new ForbiddenException('Accès non autorisé à ce signalement');
     }
 
@@ -273,17 +304,45 @@ export class ReportsService {
       await this.reportRepository.save(report);
     }
 
+    await this.auditService.log({
+      tenantId,
+      userId: senderId,
+      action: 'report.message_sent',
+      resourceType: 'report',
+      resourceId: reportId,
+      metadata: { senderRole },
+    });
+
     return this.findDetail(tenantId, reportId);
   }
 
-  async updateStatus(id: number, status: string, tenantId?: string): Promise<Report> {
+  async updateStatus(
+    id: number,
+    status: string,
+    tenantId: string | undefined,
+    actorUserId: number,
+  ): Promise<Report> {
     const where = tenantId ? { id, tenantId } : { id };
     const report = await this.reportRepository.findOneBy(where);
     if (!report) {
       throw new BadRequestException('Signalement introuvable');
     }
+    const previous = report.status;
     report.status = status;
-    return this.reportRepository.save(report);
+    const saved = await this.reportRepository.save(report);
+
+    if (tenantId) {
+      await this.auditService.log({
+        tenantId,
+        userId: actorUserId,
+        action: 'report.status_updated',
+        resourceType: 'report',
+        resourceId: id,
+        metadata: { status, previous },
+      });
+    }
+
+    return saved;
   }
 
   isInsideBoundary(_longitude: number, _latitude: number, _cityBoundary: any): boolean {

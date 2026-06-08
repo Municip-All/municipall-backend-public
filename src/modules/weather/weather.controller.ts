@@ -1,8 +1,10 @@
 import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
 import { WeatherService } from './weather.service';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Public } from '../../core/decorators/public.decorator';
 
 @ApiTags('weather')
+@Public()
 @Controller('weather')
 export class WeatherController {
   constructor(private readonly weatherService: WeatherService) {}

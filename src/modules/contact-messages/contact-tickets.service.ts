@@ -13,6 +13,7 @@ import { ContactMessage } from './entities/contact-message.entity';
 import { CreateContactMessageDto } from './dto/create-contact-message.dto';
 import { ReplyContactTicketDto } from './dto/reply-contact-ticket.dto';
 import { User } from '../user/user.entity';
+import { resolveReportSenderRole } from '../../core/auth/roles';
 
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 const CLOSED_STATUS = 'Clôturé';
@@ -230,7 +231,7 @@ export class ContactTicketsService implements OnModuleInit {
     const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
     if (!ticket) throw new NotFoundException('Conversation introuvable');
 
-    const isAgent = role === 'agent' || role === 'admin';
+    const isAgent = resolveReportSenderRole(role) === 'agent';
     if (!isAgent && ticket.userId !== userId) {
       throw new ForbiddenException('Accès non autorisé à cette conversation');
     }
@@ -269,7 +270,7 @@ export class ContactTicketsService implements OnModuleInit {
       throw new BadRequestException('Cette conversation est clôturée');
     }
 
-    const isAgent = role === 'agent' || role === 'admin';
+    const isAgent = resolveReportSenderRole(role) === 'agent';
     if (!isAgent && ticket.userId !== senderId) {
       throw new ForbiddenException('Vous ne pouvez pas répondre à cette conversation');
     }

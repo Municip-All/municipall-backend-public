@@ -198,9 +198,14 @@ export class AdminService {
   }
 
   async getCityAgents(cityId: string) {
-    return this.userRepository.find({
-      where: { cityId, role: 'agent' },
+    const staff = await this.userRepository.find({
+      where: { cityId },
       order: { created_at: 'DESC' },
+    });
+    const staffRoles = new Set(['mayor', 'maire', 'mairie', 'assistant', 'agent', 'conseiller']);
+    return staff.filter((u) => {
+      const r = u.role.toLowerCase();
+      return staffRoles.has(r) || r.startsWith('agent');
     });
   }
 
@@ -220,10 +225,10 @@ export class AdminService {
 
     // Create a dummy agent user for testing
     const dummyAgent = this.userRepository.create({
-      name: 'Agent',
-      surname: 'Test',
+      name: invitation.name ?? 'Agent',
+      surname: 'Municipall',
       email: invitation.email,
-      role: 'agent',
+      role: invitation.role ?? 'assistant',
       cityId: invitation.cityId,
       password: 'password123',
     });
