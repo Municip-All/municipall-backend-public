@@ -24,6 +24,7 @@ import { Public } from '../../core/decorators/public.decorator';
 import { PlatformAdminGuard } from '../../core/guards/platform-admin.guard';
 import { StaffService } from '../staff/staff.service';
 import { CreateMayorDto } from '../staff/dto/create-staff-invitation.dto';
+import { UpdateAdminUserDto } from './dto/update-user.dto';
 
 @Public()
 @UseGuards(PlatformAdminGuard)
@@ -59,6 +60,30 @@ export class AdminController {
       success: true,
       data: users,
     };
+  }
+
+  @Get('users/:id')
+  async getUser(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.adminService.findUserById(id);
+    return {
+      success: true,
+      data: user,
+    };
+  }
+
+  @Patch('users/:id')
+  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateAdminUserDto) {
+    const user = await this.adminService.updateUser(id, body);
+    return {
+      success: true,
+      data: user,
+    };
+  }
+
+  @Delete('users/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteUser(@Param('id', ParseIntPipe) id: number) {
+    await this.adminService.deleteUser(id);
   }
 
   @Get('docker')

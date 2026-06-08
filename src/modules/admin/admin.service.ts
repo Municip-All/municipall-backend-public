@@ -1,11 +1,47 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import * as os from 'os';
+import { CanonicalRole } from '../../core/auth/permissions';
+import { AuditService } from '../audit/audit.service';
 
 import { Invitation } from './entities/invitation.entity';
+import { UpdateAdminUserDto } from './dto/update-user.dto';
+
+const USER_PUBLIC_FIELDS = [
+  'id',
+  'name',
+  'surname',
+  'email',
+  'role',
+  'avatar_url',
+  'cityId',
+  'points',
+  'neighborhood',
+  'created_at',
+  'update_at',
+] as const;
+
+export type PublicUser = Pick<User, (typeof USER_PUBLIC_FIELDS)[number]>;
+
+function sanitizeUser(user: User): PublicUser {
+  const sanitized = {} as PublicUser;
+  for (const key of USER_PUBLIC_FIELDS) {
+    (sanitized as Record<string, unknown>)[key] = user[key];
+  }
+  return sanitized;
+}
+
+function normalizeAssignableRole(role: string): CanonicalRole {
+  const n = role.trim().toLowerCase();
+  if (n === 'mayor' || n === 'maire') return CanonicalRole.MAYOR;
+  if (n === 'assistant' || n === 'conseiller') return CanonicalRole.ASSISTANT;
+  if (n === 'agent') return CanonicalRole.AGENT;
+  if (n === 'citizen' || n === 'citoyen') return CanonicalRole.CITIZEN;
+  throw new BadRequestException(`Rôle non autorisé : ${role}`);
+}
 
 export interface CreateCityData {
   id: string;
@@ -32,6 +68,7 @@ export class AdminService {
     private cityRepository: Repository<City>,
     @InjectRepository(Invitation)
     private invitationRepository: Repository<Invitation>,
+    private readonly auditService: AuditService,
   ) {}
 
   async getBusinessStats() {
@@ -72,10 +109,104 @@ export class AdminService {
     };
   }
 
-  async findAllUsers() {
-    return this.userRepository.find({
+  async findAllUsers(): Promise<PublicUser[]> {
+    const users = await this.userRepository.find({
+      select: [...USER_PUBLIC_FIELDS],
       order: { created_at: 'DESC' },
     });
+    return users;
+  }
+
+  async findUserById(id: number): Promise<PublicUser> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: [...USER_PUBLIC_FIELDS],
+    });
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+    return user;
+  }
+
+  async updateUser(id: number, dto: UpdateAdminUserDto): Promise<PublicUser> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    const before = {
+      role: user.role,
+      cityId: user.cityId,
+      email: user.email,
+    };
+
+    if (dto.name !== undefined) user.name = dto.name.trim();
+    if (dto.surname !== undefined) user.surname = dto.surname.trim();
+    if (dto.role !== undefined) {
+      user.role = normalizeAssignableRole(dto.role);
+    }
+    if (dto.cityId !== undefined) {
+      const cityId = dto.cityId.trim() || undefined;
+      if (cityId) {
+        const city = await this.cityRepository.findOne({ where: { id: cityId } });
+        if (!city) {
+          throw new BadRequestException('Ville introuvable.');
+        }
+      }
+      user.cityId = cityId;
+    }
+    if (dto.password) {
+      user.password = dto.password;
+    }
+
+    const staffRoles = [CanonicalRole.MAYOR, CanonicalRole.ASSISTANT, CanonicalRole.AGENT];
+    if (staffRoles.includes(user.role as CanonicalRole) && !user.cityId) {
+      throw new BadRequestException(
+        'Un compte staff (maire, assistant ou agent) doit être rattaché à une ville.',
+      );
+    }
+
+    await this.userRepository.save(user);
+
+    await this.auditService.log({
+      tenantId: user.cityId ?? 'platform',
+      userId: 0,
+      action: 'admin.user_updated',
+      resourceType: 'user',
+      resourceId: user.id,
+      metadata: {
+        before,
+        after: {
+          role: user.role,
+          cityId: user.cityId,
+          passwordReset: Boolean(dto.password),
+        },
+      },
+    });
+
+    return sanitizeUser(user);
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    await this.auditService.log({
+      tenantId: user.cityId ?? 'platform',
+      userId: 0,
+      action: 'admin.user_deleted',
+      resourceType: 'user',
+      resourceId: user.id,
+      metadata: {
+        email: user.email,
+        role: user.role,
+        cityId: user.cityId,
+      },
+    });
+
+    await this.userRepository.remove(user);
   }
 
   async findAllCities() {
