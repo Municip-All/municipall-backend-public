@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
@@ -6,6 +6,7 @@ import { User } from '../user/user.entity';
 import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
 import { ContactTicketMessage } from '../contact-messages/entities/contact-ticket-message.entity';
 import { City } from './entities/city.entity';
+import { AuditService } from '../audit/audit.service';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
@@ -18,6 +19,8 @@ export interface CityContactConfig {
 
 export interface CityConfig {
   name: string;
+  /** Nom officiel pour cartes / géolocalisation (≠ nom d'app marque blanche) */
+  officialName?: string;
   features: string[];
   /** Texte contractuel affiché dans la politique de confidentialité (durées par commune) */
   dataRetentionPolicy?: string;
@@ -72,6 +75,20 @@ export interface CityDashboardStats {
   alerts: DashboardAlert[];
 }
 
+const KNOWN_CITY_OFFICIAL_NAMES: Record<string, string> = {
+  'le-kremlin-bicetre': 'Le Kremlin-Bicêtre',
+};
+
+function resolveOfficialName(city: City): string {
+  if (city.officialName?.trim()) return city.officialName.trim();
+  if (KNOWN_CITY_OFFICIAL_NAMES[city.id]) return KNOWN_CITY_OFFICIAL_NAMES[city.id];
+  return city.id
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 @Injectable()
 export class CityConfigService implements OnModuleInit {
   constructor(
@@ -85,6 +102,7 @@ export class CityConfigService implements OnModuleInit {
     private readonly contactTicketRepository: Repository<ContactTicket>,
     @InjectRepository(ContactTicketMessage)
     private readonly contactTicketMessageRepository: Repository<ContactTicketMessage>,
+    private readonly auditService: AuditService,
   ) {}
 
   private isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
@@ -136,7 +154,7 @@ export class CityConfigService implements OnModuleInit {
         await this.cityRepository.save({
           id: 'city-1',
           name: 'Antigravity City',
-          primaryColor: '#244FE5',
+          primaryColor: '#0B0080',
           secondaryColor: '#3B82F6',
           useGradient: true,
           logoUrl: 'https://example.com/logo.png',
@@ -169,6 +187,7 @@ export class CityConfigService implements OnModuleInit {
     }
     return {
       name: city.name,
+      officialName: resolveOfficialName(city),
       features: city.features,
       dataRetentionPolicy: city.dataRetentionPolicy || undefined,
       contact: {
@@ -192,6 +211,34 @@ export class CityConfigService implements OnModuleInit {
   async isFeatureEnabled(cityId: string, featureName: string): Promise<boolean> {
     const cityConfig = await this.getCityConfig(cityId);
     return cityConfig.features.includes(featureName);
+  }
+
+  async getCityBoundaryGeoJson(
+    cityId: string,
+  ): Promise<{ type: 'Feature'; geometry: unknown; properties: { name: string } } | null> {
+    const rows: Array<{ geojson: string; official_name: string | null; name: string }> =
+      await this.cityRepository.query(
+        `SELECT ST_AsGeoJSON(boundary) AS geojson, official_name, name FROM cities WHERE id = $1`,
+        [cityId],
+      );
+    const row = rows[0];
+    if (!row?.geojson) return null;
+
+    let geometry: unknown;
+    try {
+      geometry = JSON.parse(row.geojson);
+    } catch {
+      return null;
+    }
+
+    const city = await this.cityRepository.findOneBy({ id: cityId });
+    const label = city ? resolveOfficialName(city) : row.name;
+
+    return {
+      type: 'Feature',
+      geometry,
+      properties: { name: label },
+    };
   }
 
   async findByLocation(lat: number, lon: number): Promise<City | null> {
@@ -271,5 +318,50 @@ export class CityConfigService implements OnModuleInit {
       ],
       alerts,
     };
+  }
+
+  async updateCityConfig(
+    cityId: string,
+    data: Record<string, unknown>,
+    actorUserId?: number,
+  ): Promise<City> {
+    const city = await this.cityRepository.findOneBy({ id: cityId });
+    if (!city) {
+      throw new NotFoundException('Ville introuvable');
+    }
+
+    const patch: Partial<City> = {};
+    if (typeof data.name === 'string') patch.name = data.name;
+    if (Array.isArray(data.features)) patch.features = data.features as string[];
+    if (typeof data.dataRetentionPolicy === 'string') {
+      patch.dataRetentionPolicy = data.dataRetentionPolicy;
+    }
+    if (typeof data.contactEmail === 'string') patch.contactEmail = data.contactEmail;
+    if (typeof data.contactPhone === 'string') patch.contactPhone = data.contactPhone;
+    if (typeof data.contactHelpText === 'string') patch.contactHelpText = data.contactHelpText;
+    if (typeof data.primaryColor === 'string') patch.primaryColor = data.primaryColor;
+    if (typeof data.secondaryColor === 'string') patch.secondaryColor = data.secondaryColor;
+    if (typeof data.useGradient === 'boolean') patch.useGradient = data.useGradient;
+    if (typeof data.logoUrl === 'string') patch.logoUrl = data.logoUrl;
+    if (Array.isArray(data.neighborhoods)) {
+      patch.neighborhoods = data.neighborhoods as City['neighborhoods'];
+    }
+    if (data.wasteConfig && typeof data.wasteConfig === 'object') {
+      patch.wasteConfig = data.wasteConfig as City['wasteConfig'];
+    }
+
+    await this.cityRepository.update(cityId, patch);
+
+    if (actorUserId) {
+      await this.auditService.log({
+        tenantId: cityId,
+        userId: actorUserId,
+        action: 'city.config_updated',
+        resourceType: 'city',
+        metadata: { fields: Object.keys(patch) },
+      });
+    }
+
+    return this.cityRepository.findOneByOrFail({ id: cityId });
   }
 }

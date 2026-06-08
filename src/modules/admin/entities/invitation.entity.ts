@@ -24,4 +24,14 @@ export class Invitation {
 
   @Column({ nullable: true })
   expiresAt?: Date;
+
+  /** Rôle attribué à l'acceptation : mayor | assistant | agent */
+  @Column({ default: 'assistant' })
+  role!: string;
+
+  @Column({ nullable: true })
+  name?: string;
+
+  @Column({ name: 'invited_by_id', nullable: true })
+  invitedById?: number;
 }

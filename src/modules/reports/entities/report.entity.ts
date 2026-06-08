@@ -5,7 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToMany,
 } from 'typeorm';
+import { ReportMessage } from './report-message.entity';
 
 @Entity('reports')
 export class Report {
@@ -28,7 +30,7 @@ export class Report {
   @Column({ name: 'is_resident', default: true })
   isResident!: boolean;
 
-  @Column({ name: 'image_url', nullable: true })
+  @Column({ name: 'image_url', type: 'text', nullable: true })
   imageUrl?: string;
 
   @Column({ type: 'text', nullable: true })
@@ -48,4 +50,7 @@ export class Report {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  @OneToMany(() => ReportMessage, (message) => message.report)
+  messages?: ReportMessage[];
 }

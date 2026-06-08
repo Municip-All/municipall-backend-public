@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { mergeNotificationPreferences, NotificationPreferences } from './notification-preferences';
 
 @Injectable()
 export class UserService {
@@ -47,7 +49,7 @@ export class UserService {
     if (!user) throw new Error('User not found');
 
     if (user.password !== passwordData.current) {
-      throw new Error('Current password incorrect');
+      throw new BadRequestException('Current password incorrect');
     }
 
     user.password = passwordData.new;
@@ -61,7 +63,39 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async getStats(userId: number): Promise<any> {
+  async getNotificationPreferences(userId: number): Promise<NotificationPreferences> {
+    const user = await this.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+    return mergeNotificationPreferences(user.preferences);
+  }
+
+  async updateNotificationPreferences(
+    userId: number,
+    dto: UpdatePreferencesDto,
+  ): Promise<NotificationPreferences> {
+    const user = await this.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+
+    const current = mergeNotificationPreferences(user.preferences);
+    const next: NotificationPreferences = {
+      moderationAlerts: dto.moderationAlerts ?? current.moderationAlerts,
+      weeklyReports: dto.weeklyReports ?? current.weeklyReports,
+      citizenEngagement: dto.citizenEngagement ?? current.citizenEngagement,
+      systemMaintenance: dto.systemMaintenance ?? current.systemMaintenance,
+      contactInbox: dto.contactInbox ?? current.contactInbox,
+      teamActivity: dto.teamActivity ?? current.teamActivity,
+    };
+
+    user.preferences = next as unknown as Record<string, unknown>;
+    await this.userRepository.save(user);
+    return next;
+  }
+
+  async getStats(userId: number): Promise<{
+    reports: number;
+    participations: number;
+    points: number;
+  }> {
     const user = await this.findById(userId);
     if (!user) throw new Error('User not found');
 

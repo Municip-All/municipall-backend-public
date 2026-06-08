@@ -1,16 +1,20 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const jsonBodyLimit = process.env.JSON_BODY_LIMIT ?? '15mb';
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useBodyParser('json', { limit: jsonBodyLimit });
+  app.useBodyParser('urlencoded', { limit: jsonBodyLimit, extended: true });
 
   // Enable CORS for mobile app and web dashboard access
   app.enableCors({
     origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Accept, Authorization, x-tenant-id',
+    allowedHeaders: 'Content-Type, Accept, Authorization, x-tenant-id, x-platform-admin-key',
   });
 
   // Global prefixes and pipes

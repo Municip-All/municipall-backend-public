@@ -12,6 +12,7 @@ import {
   BadRequestException,
   ParseIntPipe,
   NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
 import { AdminService, CreateCityData } from './admin.service';
 import { DockerService } from './docker.service';
@@ -19,13 +20,21 @@ import { DatabaseService } from './database.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Invitation } from './entities/invitation.entity';
 import { Repository } from 'typeorm';
+import { Public } from '../../core/decorators/public.decorator';
+import { PlatformAdminGuard } from '../../core/guards/platform-admin.guard';
+import { StaffService } from '../staff/staff.service';
+import { CreateMayorDto } from '../staff/dto/create-staff-invitation.dto';
+import { UpdateAdminUserDto } from './dto/update-user.dto';
 
+@Public()
+@UseGuards(PlatformAdminGuard)
 @Controller('admin')
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly dockerService: DockerService,
     private readonly databaseService: DatabaseService,
+    private readonly staffService: StaffService,
     @InjectRepository(Invitation)
     private invitationRepository: Repository<Invitation>,
   ) {}
@@ -51,6 +60,30 @@ export class AdminController {
       success: true,
       data: users,
     };
+  }
+
+  @Get('users/:id')
+  async getUser(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.adminService.findUserById(id);
+    return {
+      success: true,
+      data: user,
+    };
+  }
+
+  @Patch('users/:id')
+  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateAdminUserDto) {
+    const user = await this.adminService.updateUser(id, body);
+    return {
+      success: true,
+      data: user,
+    };
+  }
+
+  @Delete('users/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteUser(@Param('id', ParseIntPipe) id: number) {
+    await this.adminService.deleteUser(id);
   }
 
   @Get('docker')
@@ -162,16 +195,28 @@ export class AdminController {
     };
   }
 
+  @Post('cities/:id/mayor')
+  async createMayor(@Param('id') cityId: string, @Body() body: CreateMayorDto) {
+    const mayor = await this.staffService.createMayor({ ...body, cityId });
+    return { success: true, data: mayor };
+  }
+
   @Post('cities/:id/invitations')
-  async createInvitation(@Param('id') cityId: string, @Body('email') email: string) {
+  async createInvitation(
+    @Param('id') cityId: string,
+    @Body() body: { email: string; name?: string; role?: string },
+  ) {
+    const email = body.email;
     if (!email) throw new BadRequestException('Email is required');
 
     const invitation = this.invitationRepository.create({
       email,
+      name: body.name,
       cityId,
+      role: body.role ?? 'assistant',
       status: 'pending',
-      token: Math.random().toString(36).substring(7), // Simple token for demo
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      token: Math.random().toString(36).substring(2) + Date.now().toString(36),
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
     await this.invitationRepository.save(invitation);

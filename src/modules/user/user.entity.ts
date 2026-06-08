@@ -43,6 +43,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true, name: 'expo_push_token' })
   expoPushToken?: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  preferences?: Record<string, unknown>;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at!: Date;
 
