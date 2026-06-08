@@ -80,6 +80,7 @@ const ASSISTANT_PERMISSIONS: Permission[] = [
 const CITIZEN_PERMISSIONS: Permission[] = [
   Permission.REPORTS_CREATE,
   Permission.REPORTS_READ,
+  Permission.REPORTS_REPLY,
   Permission.CONTACT_CREATE,
   Permission.CONTACT_READ,
   Permission.CONTACT_REPLY,

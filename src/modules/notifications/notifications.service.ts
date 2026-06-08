@@ -98,13 +98,23 @@ export class NotificationsService {
     return users;
   }
 
-  async sendPushNotification(userId: string, title: string, body: string) {
+  async sendPushNotification(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, unknown>,
+  ) {
     const user = await this.userRepository.findOne({
       where: { id: Number(userId) },
     });
     if (!user?.expoPushToken) return { sent: 0, failed: 0 };
     return this.expoPush.sendBatch([
-      { to: user.expoPushToken, title, body, data: { type: 'direct' } },
+      {
+        to: user.expoPushToken,
+        title,
+        body,
+        data: { type: 'direct', ...data },
+      },
     ]);
   }
 }

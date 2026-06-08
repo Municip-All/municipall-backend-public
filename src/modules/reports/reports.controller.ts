@@ -17,6 +17,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { RequirePermissions } from '../../core/decorators/require-permissions.decorator';
 import { Permission } from '../../core/auth/permissions';
 import { Public } from '../../core/decorators/public.decorator';
+import { resolveReportSenderRole } from '../../core/auth/roles';
 
 interface ReportRequest extends Request {
   tenantId?: string;
@@ -41,10 +42,30 @@ export class ReportsController {
 
   @RequirePermissions(Permission.REPORTS_READ)
   @Get()
-  @ApiOperation({ summary: 'Get all reports for the current city' })
+  @ApiOperation({ summary: 'List reports (staff: city-wide, citizen: own reports)' })
   async getAll(@Req() req: ReportRequest) {
     const tenantId = req.tenantId ?? 'city-1';
+    const userId = req.user?.sub;
+    const role = req.user?.role ?? 'citizen';
+    if (resolveReportSenderRole(role) === 'citizen') {
+      if (!userId) {
+        throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
+      }
+      return this.reportsService.findByUser(tenantId, userId);
+    }
     return this.reportsService.findAll(tenantId);
+  }
+
+  @RequirePermissions(Permission.REPORTS_READ)
+  @Get('mine')
+  @ApiOperation({ summary: 'Mes signalements (citoyen)' })
+  async getMine(@Req() req: ReportRequest) {
+    const tenantId = req.tenantId ?? 'city-1';
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
+    }
+    return this.reportsService.findByUser(tenantId, userId);
   }
 
   @Public()
@@ -59,7 +80,11 @@ export class ReportsController {
   @ApiOperation({ summary: 'Get report detail with citizen info and messages' })
   async getDetail(@Req() req: ReportRequest, @Param('id', ParseIntPipe) id: number) {
     const tenantId = req.tenantId ?? 'city-1';
-    return this.reportsService.findDetail(tenantId, id);
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
+    }
+    return this.reportsService.findDetail(tenantId, id, userId, req.user?.role ?? 'citizen');
   }
 
   @RequirePermissions(Permission.REPORTS_REPLY)
@@ -75,7 +100,13 @@ export class ReportsController {
     if (!userId) {
       throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
     }
-    return this.reportsService.addMessage(tenantId, id, userId, body.body);
+    return this.reportsService.addMessage(
+      tenantId,
+      id,
+      userId,
+      body.body,
+      req.user?.role ?? 'citizen',
+    );
   }
 
   @RequirePermissions(Permission.REPORTS_STATUS)

@@ -13,6 +13,7 @@ import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import { resolveReportSenderRole } from '../../core/auth/roles';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface ReportMessageView {
   id: number;
@@ -40,6 +41,23 @@ interface CoordinateRow {
 function isCoordinateRow(value: unknown): value is CoordinateRow {
   if (typeof value !== 'object' || value === null) return false;
   return 'lat' in value && 'lon' in value;
+}
+
+export interface ReportListItem {
+  id: number;
+  category: string;
+  status: string;
+  description?: string;
+  imageUrl?: string;
+  lat: number;
+  lon: number;
+  createdAt: string;
+  updatedAt: string;
+  lastMessage?: {
+    body: string;
+    senderRole: ReportMessageRole;
+    createdAt: string;
+  };
 }
 
 export interface ReportDetailView {
@@ -71,6 +89,7 @@ export class ReportsService {
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
     private readonly auditService: AuditService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(tenantId: string, data: CreateReportDto, actorUserId?: number): Promise<Report> {
@@ -149,6 +168,41 @@ export class ReportsService {
     });
   }
 
+  private async toListItem(report: Report): Promise<ReportListItem> {
+    const { lat, lon } = await this.extractCoordinates(report.id);
+    const last = await this.messageRepository.findOne({
+      where: { reportId: report.id },
+      order: { createdAt: 'DESC' },
+    });
+    return {
+      id: report.id,
+      category: report.category,
+      status: report.status,
+      description: report.description,
+      imageUrl: report.imageUrl,
+      lat,
+      lon,
+      createdAt: report.createdAt.toISOString(),
+      updatedAt: report.updatedAt.toISOString(),
+      lastMessage: last
+        ? {
+            body: last.body,
+            senderRole: last.senderRole,
+            createdAt: last.createdAt.toISOString(),
+          }
+        : undefined,
+    };
+  }
+
+  async findByUser(tenantId: string, userId: number): Promise<ReportListItem[]> {
+    const reports = await this.reportRepository.find({
+      where: { tenantId, userId },
+      order: { updatedAt: 'DESC' },
+      take: 50,
+    });
+    return Promise.all(reports.map((report) => this.toListItem(report)));
+  }
+
   private async extractCoordinates(reportId: number): Promise<{ lat: number; lon: number }> {
     const raw: unknown = await this.reportRepository.query(
       `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon FROM reports WHERE id = $1`,
@@ -193,12 +247,22 @@ export class ReportsService {
     return result;
   }
 
-  async findDetail(tenantId: string, id: number): Promise<ReportDetailView> {
+  async findDetail(
+    tenantId: string,
+    id: number,
+    userId: number,
+    role: string,
+  ): Promise<ReportDetailView> {
     const report = await this.reportRepository.findOne({
       where: { id, tenantId },
     });
     if (!report) {
       throw new NotFoundException('Signalement introuvable');
+    }
+
+    const isAgent = resolveReportSenderRole(role) === 'agent';
+    if (!isAgent && report.userId != null && Number(report.userId) !== Number(userId)) {
+      throw new ForbiddenException('Accès non autorisé à ce signalement');
     }
 
     const { lat, lon } = await this.extractCoordinates(id);
@@ -254,6 +318,7 @@ export class ReportsService {
     reportId: number,
     senderId: number,
     body: string,
+    roleHint?: string,
   ): Promise<ReportDetailView> {
     const sender = await this.userRepository.findOne({
       where: { id: senderId },
@@ -263,7 +328,7 @@ export class ReportsService {
       throw new ForbiddenException('Utilisateur introuvable.');
     }
 
-    const senderRole = resolveReportSenderRole(sender.role);
+    const senderRole = resolveReportSenderRole(roleHint ?? sender.role);
 
     if (senderRole === 'agent' && sender.cityId && sender.cityId !== tenantId) {
       throw new ForbiddenException("Vous n'êtes pas autorisé pour cette ville.");
@@ -313,7 +378,17 @@ export class ReportsService {
       metadata: { senderRole },
     });
 
-    return this.findDetail(tenantId, reportId);
+    if (senderRole === 'agent' && report.userId) {
+      const preview = trimmed.length > 120 ? `${trimmed.slice(0, 117)}…` : trimmed;
+      void this.notificationsService
+        .sendPushNotification(String(report.userId), 'Réponse sur votre signalement', preview, {
+          type: 'report',
+          reportId,
+        })
+        .catch(() => undefined);
+    }
+
+    return this.findDetail(tenantId, reportId, senderId, sender.role);
   }
 
   async updateStatus(
