@@ -30,7 +30,7 @@ export class Report {
   @Column({ name: 'is_resident', default: true })
   isResident!: boolean;
 
-  @Column({ name: 'image_url', nullable: true })
+  @Column({ name: 'image_url', type: 'text', nullable: true })
   imageUrl?: string;
 
   @Column({ type: 'text', nullable: true })
