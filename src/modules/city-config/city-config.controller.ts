@@ -52,6 +52,18 @@ export class CityConfigController {
 
   @RequirePermissions(Permission.CITY_CONFIG_READ)
   @ApiBearerAuth()
+  @Get(':cityId/boundary')
+  @ApiOperation({ summary: 'Contour communal (GeoJSON) pour cartes backoffice' })
+  async getBoundary(@Param('cityId') cityId: string) {
+    const feature = await this.cityConfigService.getCityBoundaryGeoJson(cityId);
+    if (!feature) {
+      throw new NotFoundException('Contour communal non disponible');
+    }
+    return feature;
+  }
+
+  @RequirePermissions(Permission.CITY_CONFIG_READ)
+  @ApiBearerAuth()
   @Get(':cityId/dashboard-stats')
   async getDashboardStats(@Param('cityId') cityId: string) {
     return this.cityConfigService.getDashboardStats(cityId);

@@ -8,6 +8,10 @@ export class City {
   @Column()
   name!: string;
 
+  /** Nom officiel INSEE / géographique (ex. Le Kremlin-Bicêtre) — distinct du nom d'app marque blanche */
+  @Column({ name: 'official_name', nullable: true })
+  officialName?: string;
+
   @Column({ name: 'primary_color' })
   primaryColor!: string;
 

@@ -19,6 +19,8 @@ export interface CityContactConfig {
 
 export interface CityConfig {
   name: string;
+  /** Nom officiel pour cartes / géolocalisation (≠ nom d'app marque blanche) */
+  officialName?: string;
   features: string[];
   /** Texte contractuel affiché dans la politique de confidentialité (durées par commune) */
   dataRetentionPolicy?: string;
@@ -71,6 +73,20 @@ export interface CityDashboardStats {
   suggestionsTrend: number;
   trendData: { name: string; satisfaction: number }[];
   alerts: DashboardAlert[];
+}
+
+const KNOWN_CITY_OFFICIAL_NAMES: Record<string, string> = {
+  'le-kremlin-bicetre': 'Le Kremlin-Bicêtre',
+};
+
+function resolveOfficialName(city: City): string {
+  if (city.officialName?.trim()) return city.officialName.trim();
+  if (KNOWN_CITY_OFFICIAL_NAMES[city.id]) return KNOWN_CITY_OFFICIAL_NAMES[city.id];
+  return city.id
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 @Injectable()
@@ -138,7 +154,7 @@ export class CityConfigService implements OnModuleInit {
         await this.cityRepository.save({
           id: 'city-1',
           name: 'Antigravity City',
-          primaryColor: '#244FE5',
+          primaryColor: '#0B0080',
           secondaryColor: '#3B82F6',
           useGradient: true,
           logoUrl: 'https://example.com/logo.png',
@@ -171,6 +187,7 @@ export class CityConfigService implements OnModuleInit {
     }
     return {
       name: city.name,
+      officialName: resolveOfficialName(city),
       features: city.features,
       dataRetentionPolicy: city.dataRetentionPolicy || undefined,
       contact: {
@@ -194,6 +211,34 @@ export class CityConfigService implements OnModuleInit {
   async isFeatureEnabled(cityId: string, featureName: string): Promise<boolean> {
     const cityConfig = await this.getCityConfig(cityId);
     return cityConfig.features.includes(featureName);
+  }
+
+  async getCityBoundaryGeoJson(
+    cityId: string,
+  ): Promise<{ type: 'Feature'; geometry: unknown; properties: { name: string } } | null> {
+    const rows: Array<{ geojson: string; official_name: string | null; name: string }> =
+      await this.cityRepository.query(
+        `SELECT ST_AsGeoJSON(boundary) AS geojson, official_name, name FROM cities WHERE id = $1`,
+        [cityId],
+      );
+    const row = rows[0];
+    if (!row?.geojson) return null;
+
+    let geometry: unknown;
+    try {
+      geometry = JSON.parse(row.geojson);
+    } catch {
+      return null;
+    }
+
+    const city = await this.cityRepository.findOneBy({ id: cityId });
+    const label = city ? resolveOfficialName(city) : row.name;
+
+    return {
+      type: 'Feature',
+      geometry,
+      properties: { name: label },
+    };
   }
 
   async findByLocation(lat: number, lon: number): Promise<City | null> {

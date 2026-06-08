@@ -258,6 +258,7 @@ export class AdminService {
     const city = this.cityRepository.create({
       id,
       name,
+      officialName: name,
       primaryColor,
       secondaryColor,
       useGradient,
