@@ -182,16 +182,17 @@ export class ReportsService {
   async findDetail(tenantId: string, id: number): Promise<ReportDetailView> {
     const report = await this.reportRepository.findOne({
       where: { id, tenantId },
-      relations: ['messages'],
     });
     if (!report) {
       throw new NotFoundException('Signalement introuvable');
     }
 
     const { lat, lon } = await this.extractCoordinates(id);
-    const messages = await this.mapMessages(
-      (report.messages ?? []).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
-    );
+    const rawMessages = await this.messageRepository.find({
+      where: { reportId: id },
+      order: { createdAt: 'ASC' },
+    });
+    const messages = await this.mapMessages(rawMessages);
 
     let citizen: ReportCitizenView | undefined;
     if (report.userId) {

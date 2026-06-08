@@ -52,8 +52,6 @@ export class ReportsController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get report detail with citizen info and messages' })
   async getDetail(@Req() req: ReportRequest, @Param('id', ParseIntPipe) id: number) {
     const tenantId = req.tenantId ?? 'city-1';
