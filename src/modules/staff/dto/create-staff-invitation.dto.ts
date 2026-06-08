@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsIn, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateStaffInvitationDto {
   @ApiProperty()
@@ -42,6 +42,7 @@ export class AcceptInvitationDto {
   password!: string;
 }
 
+/** Corps de POST /admin/cities/:id/mayor — cityId vient de l'URL. */
 export class CreateMayorDto {
   @ApiProperty()
   @IsEmail()
@@ -50,20 +51,19 @@ export class CreateMayorDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(80)
   name!: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(80)
   surname!: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @MinLength(8)
+  @MaxLength(128)
   password!: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  cityId!: string;
 }
