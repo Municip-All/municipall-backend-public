@@ -7,7 +7,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 
 const PRIM_BASE = 'https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia';
-const IDFM_COVERAGE = 'idfm';
 const MAX_LINES = 12;
 
 export type TransportMode = 'metro' | 'rer' | 'train' | 'tram' | 'bus' | 'other';
@@ -27,13 +26,23 @@ export interface TransportDisruptionsResponseDto {
   fetchedAt: string;
 }
 
-type NavitiaPlace = {
+type NavitiaLine = {
   id?: string;
   name?: string;
-  embedded_type?: string;
   commercial_mode?: { id?: string; name?: string };
   physical_mode?: { id?: string; name?: string };
-  line?: { id?: string; name?: string; commercial_mode?: { name?: string } };
+};
+
+type NavitiaDisruption = {
+  messages?: Array<{ text?: string; channel?: { name?: string } } | string>;
+  impacted_objects?: Array<{
+    pt_object?: { embedded_type?: string; id?: string; name?: string };
+  }>;
+};
+
+type NavitiaLinesResponse = {
+  lines?: NavitiaLine[];
+  disruptions?: NavitiaDisruption[];
 };
 
 @Injectable()
@@ -52,6 +61,23 @@ export class TransportService {
     return key;
   }
 
+  private primHeaders(): Record<string, string> {
+    return {
+      Accept: 'application/json',
+      apiKey: this.getApiKey(),
+    };
+  }
+
+  private handlePrimError(status: number, context: string): never {
+    this.logger.warn(`PRIM ${status} ${context}`);
+    if (status === 401 || status === 403) {
+      throw new ServiceUnavailableException(
+        'Service transports indisponible (clé API IDFM invalide ou expirée)',
+      );
+    }
+    throw new BadGatewayException('Impossible de récupérer les données IDFM');
+  }
+
   private async primFetch<T>(path: string, query?: Record<string, string | number>): Promise<T> {
     const url = new URL(`${PRIM_BASE}${path}`);
     if (query) {
@@ -59,27 +85,18 @@ export class TransportService {
     }
 
     const response = await fetch(url.toString(), {
-      headers: {
-        Accept: 'application/json',
-        apikey: this.getApiKey(),
-      },
+      headers: this.primHeaders(),
     });
 
     if (!response.ok) {
-      this.logger.warn(`PRIM ${response.status} ${url.pathname}`);
-      throw new BadGatewayException('Impossible de récupérer les données IDFM');
+      this.handlePrimError(response.status, url.pathname);
     }
 
     return response.json() as Promise<T>;
   }
 
-  private resolveMode(place: NavitiaPlace): TransportMode {
-    const label = [
-      place.commercial_mode?.name,
-      place.physical_mode?.name,
-      place.line?.commercial_mode?.name,
-      place.name,
-    ]
+  private resolveMode(line: NavitiaLine): TransportMode {
+    const label = [line.commercial_mode?.name, line.physical_mode?.name, line.name]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -92,97 +109,72 @@ export class TransportService {
     return 'other';
   }
 
-  private extractLinesFromNearby(
-    places: NavitiaPlace[],
-  ): Map<string, { id: string; name: string; mode: TransportMode }> {
-    const lines = new Map<string, { id: string; name: string; mode: TransportMode }>();
-
-    for (const place of places) {
-      if (place.embedded_type === 'line' && place.id && place.name) {
-        lines.set(place.id, { id: place.id, name: place.name, mode: this.resolveMode(place) });
-        continue;
-      }
-      if (place.line?.id && place.line?.name) {
-        lines.set(place.line.id, {
-          id: place.line.id,
-          name: place.line.name,
-          mode: this.resolveMode(place),
-        });
-      }
-    }
-
-    return lines;
+  private stripHtml(text: string): string {
+    return text
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
-  private extractDisruptionMessages(payload: unknown): string[] {
-    if (!payload || typeof payload !== 'object') return [];
-    const root = payload as Record<string, unknown>;
-    const reports = Array.isArray(root.line_reports) ? root.line_reports : [];
+  private extractDisruptionTexts(disruption: NavitiaDisruption): string[] {
     const messages: string[] = [];
 
-    for (const report of reports) {
-      if (!report || typeof report !== 'object') continue;
-      const r = report as Record<string, unknown>;
-
-      const disruptions = Array.isArray(r.disruptions) ? r.disruptions : [];
-      for (const d of disruptions) {
-        if (!d || typeof d !== 'object') continue;
-        const disruption = d as Record<string, unknown>;
-        const msg =
-          (typeof disruption.message === 'string' && disruption.message) ||
-          (typeof disruption.cause === 'string' && disruption.cause) ||
-          (typeof disruption.severity === 'string' && disruption.severity) ||
-          '';
-        if (msg.trim()) messages.push(msg.trim());
-      }
-
-      if (typeof r.message === 'string' && r.message.trim()) {
-        messages.push(r.message.trim());
-      }
+    for (const entry of disruption.messages ?? []) {
+      const raw = typeof entry === 'string' ? entry : entry?.text;
+      if (!raw?.trim()) continue;
+      const clean = this.stripHtml(raw);
+      if (clean) messages.push(clean);
     }
 
     return [...new Set(messages)].slice(0, 5);
   }
 
-  async getDisruptionsNear(lat: number, lon: number): Promise<TransportDisruptionsResponseDto> {
-    const nearbyPath = `/coverage/${IDFM_COVERAGE}/coords/${lon};${lat}/places_nearby`;
-    const nearbyUrl = new URL(`${PRIM_BASE}${nearbyPath}`);
-    nearbyUrl.searchParams.set('distance', '1200');
-    nearbyUrl.searchParams.set('count', '40');
-    nearbyUrl.searchParams.append('type[]', 'line');
-    nearbyUrl.searchParams.append('type[]', 'stop_point');
-    nearbyUrl.searchParams.set('disable_geojson', 'true');
+  private mapDisruptionsByLineId(disruptions: NavitiaDisruption[]): Map<string, string[]> {
+    const byLine = new Map<string, string[]>();
 
-    const nearbyResponse = await fetch(nearbyUrl.toString(), {
-      headers: { Accept: 'application/json', apikey: this.getApiKey() },
-    });
-    if (!nearbyResponse.ok) {
-      this.logger.warn(`PRIM places_nearby ${nearbyResponse.status}`);
+    for (const disruption of disruptions) {
+      const texts = this.extractDisruptionTexts(disruption);
+      if (!texts.length) continue;
+
+      for (const impacted of disruption.impacted_objects ?? []) {
+        const pt = impacted.pt_object;
+        if (pt?.embedded_type !== 'line' || !pt.id) continue;
+
+        const existing = byLine.get(pt.id) ?? [];
+        byLine.set(pt.id, [...new Set([...existing, ...texts])].slice(0, 5));
+      }
+    }
+
+    return byLine;
+  }
+
+  async getDisruptionsNear(lat: number, lon: number): Promise<TransportDisruptionsResponseDto> {
+    let payload: NavitiaLinesResponse;
+    try {
+      payload = await this.primFetch<NavitiaLinesResponse>(`/coords/${lon};${lat}/lines`, {
+        distance: 1200,
+        count: MAX_LINES,
+        disable_geojson: 'true',
+      });
+    } catch (err) {
+      if (err instanceof BadGatewayException || err instanceof ServiceUnavailableException) {
+        throw err;
+      }
+      this.logger.warn(`PRIM coords/lines failed: ${String(err)}`);
       throw new BadGatewayException('Impossible de récupérer les lignes à proximité');
     }
-    const nearby = (await nearbyResponse.json()) as { places_nearby?: NavitiaPlace[] };
 
-    const lineMap = this.extractLinesFromNearby(nearby.places_nearby ?? []);
-    const lineEntries = [...lineMap.values()].slice(0, MAX_LINES);
-
+    const disruptionsByLine = this.mapDisruptionsByLineId(payload.disruptions ?? []);
     const lines: TransportLineDisruptionDto[] = [];
 
-    for (const line of lineEntries) {
-      const lineId = encodeURIComponent(line.id);
-      const reportsPath = `/line_reports/line_reports/coverage/${IDFM_COVERAGE}/lines/${lineId}/line_reports`;
-
-      let messages: string[] = [];
-      try {
-        const reportsPayload = await this.primFetch<unknown>(reportsPath, { count: 10 });
-        messages = this.extractDisruptionMessages(reportsPayload);
-      } catch (err) {
-        this.logger.debug(`line_reports skip ${line.name}: ${String(err)}`);
-      }
+    for (const line of (payload.lines ?? []).slice(0, MAX_LINES)) {
+      if (!line.id || !line.name) continue;
+      const messages = disruptionsByLine.get(line.id) ?? [];
 
       lines.push({
         lineId: line.id,
         lineName: line.name,
-        mode: line.mode,
+        mode: this.resolveMode(line),
         status: messages.length ? 'disrupted' : 'normal',
         messages,
       });
