@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 
 const PRIM_BASE = 'https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia';
 const MAX_LINES = 12;
+const MAX_STOPS = 15;
 
 export type TransportMode = 'metro' | 'rer' | 'train' | 'tram' | 'bus' | 'other';
 
@@ -21,8 +22,19 @@ export interface TransportLineDisruptionDto {
   messages: string[];
 }
 
+export interface TransportStopMarkerDto {
+  stopId: string;
+  name: string;
+  lat: number;
+  lon: number;
+  modes: string[];
+  status: TransportDisruptionStatus;
+  messages: string[];
+}
+
 export interface TransportDisruptionsResponseDto {
   lines: TransportLineDisruptionDto[];
+  stops: TransportStopMarkerDto[];
   fetchedAt: string;
 }
 
@@ -43,6 +55,23 @@ type NavitiaDisruption = {
 type NavitiaLinesResponse = {
   lines?: NavitiaLine[];
   disruptions?: NavitiaDisruption[];
+};
+
+type NavitiaPlaceNearby = {
+  id?: string;
+  name?: string;
+  embedded_type?: string;
+  coord?: { lat?: string | number; lon?: string | number };
+  stop_area?: {
+    id?: string;
+    name?: string;
+    coord?: { lat?: string | number; lon?: string | number };
+    commercial_modes?: Array<{ name?: string }>;
+  };
+};
+
+type NavitiaPlacesNearbyResponse = {
+  places_nearby?: NavitiaPlaceNearby[];
 };
 
 @Injectable()
@@ -129,6 +158,25 @@ export class TransportService {
     return [...new Set(messages)].slice(0, 5);
   }
 
+  private mapDisruptionsByStopId(disruptions: NavitiaDisruption[]): Map<string, string[]> {
+    const byStop = new Map<string, string[]>();
+
+    for (const disruption of disruptions) {
+      const texts = this.extractDisruptionTexts(disruption);
+      if (!texts.length) continue;
+
+      for (const impacted of disruption.impacted_objects ?? []) {
+        const pt = impacted.pt_object;
+        if (pt?.embedded_type !== 'stop_area' || !pt.id) continue;
+
+        const existing = byStop.get(pt.id) ?? [];
+        byStop.set(pt.id, [...new Set([...existing, ...texts])].slice(0, 5));
+      }
+    }
+
+    return byStop;
+  }
+
   private mapDisruptionsByLineId(disruptions: NavitiaDisruption[]): Map<string, string[]> {
     const byLine = new Map<string, string[]>();
 
@@ -148,28 +196,90 @@ export class TransportService {
     return byLine;
   }
 
-  async getDisruptionsNear(lat: number, lon: number): Promise<TransportDisruptionsResponseDto> {
-    let payload: NavitiaLinesResponse;
-    try {
-      payload = await this.primFetch<NavitiaLinesResponse>(`/coords/${lon};${lat}/lines`, {
-        distance: 1200,
-        count: MAX_LINES,
-        disable_geojson: 'true',
+  private parseCoord(value: string | number | undefined): number | null {
+    if (value == null || value === '') return null;
+    const n = typeof value === 'number' ? value : Number.parseFloat(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  private extractStopMarkers(
+    places: NavitiaPlaceNearby[],
+    disruptions: NavitiaDisruption[],
+    areaLineMessages: string[],
+  ): TransportStopMarkerDto[] {
+    const disruptionsByStop = this.mapDisruptionsByStopId(disruptions);
+    const stops: TransportStopMarkerDto[] = [];
+
+    for (const place of places.slice(0, MAX_STOPS)) {
+      if (place.embedded_type !== 'stop_area') continue;
+
+      const stopArea = place.stop_area;
+      const stopId = stopArea?.id ?? place.id;
+      if (!stopId) continue;
+
+      const coord = stopArea?.coord ?? place.coord;
+      const lat = this.parseCoord(coord?.lat);
+      const lon = this.parseCoord(coord?.lon);
+      if (lat == null || lon == null) continue;
+
+      const modes = [
+        ...new Set((stopArea?.commercial_modes ?? []).map((m) => m.name).filter(Boolean)),
+      ] as string[];
+      const stopMessages = disruptionsByStop.get(stopId) ?? [];
+      const messages = [...new Set([...stopMessages, ...areaLineMessages])].slice(0, 5);
+
+      stops.push({
+        stopId,
+        name: place.name ?? stopArea?.name ?? 'Arrêt',
+        lat,
+        lon,
+        modes,
+        status: messages.length ? 'disrupted' : 'normal',
+        messages,
       });
+    }
+
+    return stops;
+  }
+
+  async getDisruptionsNear(lat: number, lon: number): Promise<TransportDisruptionsResponseDto> {
+    let linesPayload: NavitiaLinesResponse;
+    let placesPayload: NavitiaPlacesNearbyResponse;
+
+    try {
+      [linesPayload, placesPayload] = await Promise.all([
+        this.primFetch<NavitiaLinesResponse>(`/coords/${lon};${lat}/lines`, {
+          distance: 1200,
+          count: MAX_LINES,
+          disable_geojson: 'true',
+        }),
+        this.primFetch<NavitiaPlacesNearbyResponse>(`/coords/${lon};${lat}/places_nearby`, {
+          distance: 1200,
+          count: MAX_STOPS,
+          'type[]': 'stop_area',
+          disable_geojson: 'true',
+          depth: 2,
+        }),
+      ]);
     } catch (err) {
       if (err instanceof BadGatewayException || err instanceof ServiceUnavailableException) {
         throw err;
       }
-      this.logger.warn(`PRIM coords/lines failed: ${String(err)}`);
+      this.logger.warn(`PRIM transport fetch failed: ${String(err)}`);
       throw new BadGatewayException('Impossible de récupérer les lignes à proximité');
     }
 
-    const disruptionsByLine = this.mapDisruptionsByLineId(payload.disruptions ?? []);
+    const disruptions = linesPayload.disruptions ?? [];
+    const disruptionsByLine = this.mapDisruptionsByLineId(disruptions);
     const lines: TransportLineDisruptionDto[] = [];
+    const areaLineMessages: string[] = [];
 
-    for (const line of (payload.lines ?? []).slice(0, MAX_LINES)) {
+    for (const line of (linesPayload.lines ?? []).slice(0, MAX_LINES)) {
       if (!line.id || !line.name) continue;
       const messages = disruptionsByLine.get(line.id) ?? [];
+      if (messages.length) {
+        areaLineMessages.push(`${line.name} : ${messages[0]}`);
+      }
 
       lines.push({
         lineId: line.id,
@@ -185,8 +295,15 @@ export class TransportService {
       return a.status === 'disrupted' ? -1 : 1;
     });
 
+    const stops = this.extractStopMarkers(
+      placesPayload.places_nearby ?? [],
+      disruptions,
+      [...new Set(areaLineMessages)].slice(0, 5),
+    );
+
     return {
       lines,
+      stops,
       fetchedAt: new Date().toISOString(),
     };
   }
