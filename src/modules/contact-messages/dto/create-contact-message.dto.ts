@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateContactMessageDto {
   @ApiProperty({ example: 'Question sur les horaires' })
@@ -14,4 +14,9 @@ export class CreateContactMessageDto {
   @MinLength(10)
   @MaxLength(5000)
   body!: string;
+
+  @ApiPropertyOptional({ enum: ['question', 'suggestion'], default: 'question' })
+  @IsOptional()
+  @IsIn(['question', 'suggestion'])
+  ticketType?: 'question' | 'suggestion';
 }

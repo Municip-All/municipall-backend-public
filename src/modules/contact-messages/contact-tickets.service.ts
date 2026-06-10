@@ -30,6 +30,7 @@ export interface TicketMessageView {
 export interface ContactTicketListItem {
   id: number;
   subject: string;
+  ticketType: 'question' | 'suggestion';
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,7 @@ export interface ContactTicketListItem {
 export interface ContactTicketDetail {
   id: number;
   subject: string;
+  ticketType: 'question' | 'suggestion';
   status: string;
   userId: number;
   citizenName: string;
@@ -144,6 +146,7 @@ export class ContactTicketsService implements OnModuleInit {
     return {
       id: ticket.id,
       subject: ticket.subject,
+      ticketType: ticket.ticketType ?? 'question',
       status: ticket.status,
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString(),
@@ -162,11 +165,14 @@ export class ContactTicketsService implements OnModuleInit {
     userId: number,
     data: CreateContactMessageDto,
   ): Promise<ContactTicketDetail> {
+    const ticketType = data.ticketType === 'suggestion' ? 'suggestion' : 'question';
+
     const ticket = await this.ticketRepository.save(
       this.ticketRepository.create({
         tenantId,
         userId,
         subject: data.subject.trim(),
+        ticketType,
         status: 'En attente',
       }),
     );
@@ -246,6 +252,7 @@ export class ContactTicketsService implements OnModuleInit {
     return {
       id: ticket.id,
       subject: ticket.subject,
+      ticketType: ticket.ticketType ?? 'question',
       status: ticket.status,
       userId: ticket.userId,
       citizenName,

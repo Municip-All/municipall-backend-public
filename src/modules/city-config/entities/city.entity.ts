@@ -74,6 +74,28 @@ export class City {
   @Column('simple-json', { name: 'useful_links', nullable: true })
   usefulLinks?: { label: string; url: string; icon: string }[];
 
+  @Column('simple-json', { nullable: true })
+  associations?: {
+    id: string;
+    name: string;
+    category: 'association' | 'groupe-parole' | 'autre';
+    description?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    website?: string;
+  }[];
+
+  @Column('simple-json', { name: 'public_profile', nullable: true })
+  publicProfile?: {
+    mayorName?: string;
+    mayorTitle?: string;
+    welcomeText?: string;
+    description?: string;
+    address?: string;
+    website?: string;
+    openingHours?: string;
+  };
+
   @Column('simple-json', { name: 'waste_config', nullable: true })
   wasteConfig?: {
     services: {

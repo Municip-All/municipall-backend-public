@@ -49,6 +49,24 @@ export interface CityConfig {
   isTransportFeatureAllowed?: boolean;
   /** Activé pour les citoyens (effectif = allowed && enabled) */
   isTransportFeatureEnabled?: boolean;
+  associations?: {
+    id: string;
+    name: string;
+    category: 'association' | 'groupe-parole' | 'autre';
+    description?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    website?: string;
+  }[];
+  publicProfile?: {
+    mayorName?: string;
+    mayorTitle?: string;
+    welcomeText?: string;
+    description?: string;
+    address?: string;
+    website?: string;
+    openingHours?: string;
+  };
 }
 
 export type DashboardAlertSeverity = 'urgent' | 'high' | 'normal';
@@ -223,6 +241,8 @@ export class CityConfigService implements OnModuleInit {
       wasteConfig: city.wasteConfig || { services: [] },
       isTransportFeatureAllowed: !!city.isTransportFeatureAllowed,
       isTransportFeatureEnabled: !!city.isTransportFeatureEnabled,
+      associations: city.associations ?? [],
+      publicProfile: city.publicProfile ?? undefined,
     };
   }
 
@@ -322,6 +342,9 @@ export class CityConfigService implements OnModuleInit {
     });
 
     const pendingContactMessagesCount = pendingTickets.length;
+    const pendingSuggestionsCount = pendingTickets.filter(
+      (t) => t.ticketType === 'suggestion',
+    ).length;
     const activeReportsCount = pendingReports.length;
     const urgentReportsCount = pendingReports.filter((r) =>
       URGENT_REPORT_CATEGORIES.includes(r.category),
@@ -341,7 +364,7 @@ export class CityConfigService implements OnModuleInit {
       pendingTotalCount: activeReportsCount + pendingContactMessagesCount,
       urgentAlertsCount,
       reportsTrend: -12,
-      suggestionsCount: pendingTickets.length,
+      suggestionsCount: pendingSuggestionsCount,
       suggestionsTrend: 0,
       trendData: [
         { name: 'Lun', satisfaction: 65 },
@@ -398,6 +421,12 @@ export class CityConfigService implements OnModuleInit {
         );
       }
       patch.isTransportFeatureEnabled = data.isTransportFeatureEnabled;
+    }
+    if (Array.isArray(data.associations)) {
+      patch.associations = data.associations as City['associations'];
+    }
+    if (data.publicProfile && typeof data.publicProfile === 'object') {
+      patch.publicProfile = data.publicProfile as City['publicProfile'];
     }
 
     await this.cityRepository.update(cityId, patch);
