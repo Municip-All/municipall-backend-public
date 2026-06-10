@@ -55,6 +55,7 @@ export interface CreateCityData {
   contactHelpText?: string;
   dataRetentionPolicy?: string;
   features?: string[];
+  isTransportFeatureAllowed?: boolean;
   boundary?: unknown;
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];
 }

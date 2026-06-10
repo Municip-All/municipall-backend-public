@@ -18,6 +18,7 @@ services:
       PLATFORM_ADMIN_KEY: ${PLATFORM_ADMIN_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY_DEV}
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
+      IDFM_API_KEY: ${IDFM_API_KEY}
     ports:
       - '3001:3001'
     volumes:

@@ -18,6 +18,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { ConstructionWorksModule } from './modules/construction-works/construction-works.module';
 import { EventsModule } from './modules/events/events.module';
 import { ContactMessagesModule } from './modules/contact-messages/contact-messages.module';
+import { TransportModule } from './modules/transport/transport.module';
 import { DatabaseModule } from './database/database.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { StaffModule } from './modules/staff/staff.module';
@@ -60,6 +61,7 @@ import { TenantGuard } from './core/guards/tenant.guard';
     ConstructionWorksModule,
     EventsModule,
     ContactMessagesModule,
+    TransportModule,
   ],
   controllers: [AppController],
   providers: [

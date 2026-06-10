@@ -24,6 +24,14 @@ export class City {
   @Column({ name: 'logo_url', nullable: true })
   logoUrl?: string;
 
+  /** Fond des écrans de l'app mobile (mode clair) */
+  @Column({ name: 'background_color_light', nullable: true })
+  backgroundColorLight?: string;
+
+  /** Fond des écrans de l'app mobile (mode sombre) */
+  @Column({ name: 'background_color_dark', nullable: true })
+  backgroundColorDark?: string;
+
   @Column({ name: 'contact_email', nullable: true })
   contactEmail?: string;
 
@@ -39,6 +47,14 @@ export class City {
 
   @Column('simple-array')
   features!: string[];
+
+  /** Contrat plateforme (WebAdmin) : module transports IDFM autorisé */
+  @Column({ name: 'is_transport_feature_allowed', default: false })
+  isTransportFeatureAllowed!: boolean;
+
+  /** Activation mairie (Backoffice) : visible dans l'app citoyenne */
+  @Column({ name: 'is_transport_feature_enabled', default: false })
+  isTransportFeatureEnabled!: boolean;
 
   // PostGIS geometry for city boundary
   @Column({

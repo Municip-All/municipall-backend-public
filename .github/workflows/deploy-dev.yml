@@ -91,6 +91,7 @@ jobs:
             JWT_SECRET_DEV=${{ secrets.JWT_SECRET_DEV }}
             OPENAI_API_KEY_DEV=${{ secrets.OPENAI_API_KEY_DEV }}
             OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+            IDFM_API_KEY=${{ secrets.IDFM_API_KEY }}
             PLATFORM_ADMIN_KEY=${{ secrets.PLATFORM_ADMIN_KEY }}
             EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}

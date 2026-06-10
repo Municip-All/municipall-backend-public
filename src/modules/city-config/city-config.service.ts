@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
@@ -28,6 +28,8 @@ export interface CityConfig {
   theme: {
     primaryColor: string;
     secondaryColor?: string;
+    backgroundColorLight?: string;
+    backgroundColorDark?: string;
     useGradient: boolean;
     logoUrl?: string;
   };
@@ -43,6 +45,10 @@ export interface CityConfig {
       time: string;
     }[];
   };
+  /** Contrat plateforme (lecture backoffice / webadmin) */
+  isTransportFeatureAllowed?: boolean;
+  /** Activé pour les citoyens (effectif = allowed && enabled) */
+  isTransportFeatureEnabled?: boolean;
 }
 
 export type DashboardAlertSeverity = 'urgent' | 'high' | 'normal';
@@ -170,10 +176,18 @@ export class CityConfigService implements OnModuleInit {
     }
   }
 
-  async findAllActive(): Promise<Partial<City>[]> {
-    return this.cityRepository.find({
-      select: ['id', 'name', 'logoUrl'],
+  async findAllActive(): Promise<
+    { id: string; name: string; officialName: string; logoUrl?: string }[]
+  > {
+    const cities = await this.cityRepository.find({
+      select: ['id', 'name', 'logoUrl', 'officialName'],
     });
+    return cities.map((city) => ({
+      id: city.id,
+      name: city.name,
+      officialName: resolveOfficialName(city),
+      logoUrl: city.logoUrl,
+    }));
   }
 
   async getCityConfig(cityId: string): Promise<CityConfig> {
@@ -198,6 +212,8 @@ export class CityConfigService implements OnModuleInit {
       theme: {
         primaryColor: city.primaryColor,
         secondaryColor: city.secondaryColor,
+        backgroundColorLight: city.backgroundColorLight || undefined,
+        backgroundColorDark: city.backgroundColorDark || undefined,
         useGradient: city.useGradient,
         logoUrl: city.logoUrl,
       },
@@ -205,7 +221,27 @@ export class CityConfigService implements OnModuleInit {
       usefulNumbers: city.usefulNumbers || [],
       usefulLinks: city.usefulLinks || [],
       wasteConfig: city.wasteConfig || { services: [] },
+      isTransportFeatureAllowed: !!city.isTransportFeatureAllowed,
+      isTransportFeatureEnabled: !!city.isTransportFeatureEnabled,
     };
+  }
+
+  async getCityEntity(cityId: string): Promise<City> {
+    const city = await this.cityRepository.findOneBy({ id: cityId });
+    if (!city) {
+      throw new NotFoundException('Ville introuvable');
+    }
+    return city;
+  }
+
+  async assertTransportAccess(cityId: string): Promise<City> {
+    const city = await this.getCityEntity(cityId);
+    if (!city.isTransportFeatureAllowed || !city.isTransportFeatureEnabled) {
+      throw new ForbiddenException(
+        'Le module transports en commun est désactivé pour cette commune',
+      );
+    }
+    return city;
   }
 
   async isFeatureEnabled(cityId: string, featureName: string): Promise<boolean> {
@@ -343,11 +379,25 @@ export class CityConfigService implements OnModuleInit {
     if (typeof data.secondaryColor === 'string') patch.secondaryColor = data.secondaryColor;
     if (typeof data.useGradient === 'boolean') patch.useGradient = data.useGradient;
     if (typeof data.logoUrl === 'string') patch.logoUrl = data.logoUrl;
+    if (typeof data.backgroundColorLight === 'string') {
+      patch.backgroundColorLight = data.backgroundColorLight;
+    }
+    if (typeof data.backgroundColorDark === 'string') {
+      patch.backgroundColorDark = data.backgroundColorDark;
+    }
     if (Array.isArray(data.neighborhoods)) {
       patch.neighborhoods = data.neighborhoods as City['neighborhoods'];
     }
     if (data.wasteConfig && typeof data.wasteConfig === 'object') {
       patch.wasteConfig = data.wasteConfig as City['wasteConfig'];
+    }
+    if (typeof data.isTransportFeatureEnabled === 'boolean') {
+      if (data.isTransportFeatureEnabled && !city.isTransportFeatureAllowed) {
+        throw new ForbiddenException(
+          "Le module transports n'est pas inclus dans le contrat de cette commune",
+        );
+      }
+      patch.isTransportFeatureEnabled = data.isTransportFeatureEnabled;
     }
 
     await this.cityRepository.update(cityId, patch);
