@@ -100,6 +100,30 @@ jobs:
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.dev.yml pull
             docker compose -f docker-compose.dev.yml up -d
+
             echo "Attente démarrage backend…"
-            sleep 15
+            READY=0
+            for i in $(seq 1 30); do
+              CID=$(docker compose -f docker-compose.dev.yml ps -q backend-dev 2>/dev/null || true)
+              if [ -n "$CID" ]; then
+                STATUS=$(docker inspect -f '{{.State.Status}}' "$CID" 2>/dev/null || echo "unknown")
+              else
+                STATUS="missing"
+              fi
+              if [ "$STATUS" = "running" ]; then
+                if docker compose -f docker-compose.dev.yml exec -T backend-dev node -e "process.exit(0)" 2>/dev/null; then
+                  READY=1
+                  break
+                fi
+              fi
+              echo "  tentative $i/30 — état: $STATUS"
+              sleep 5
+            done
+
+            if [ "$READY" != "1" ]; then
+              echo "Backend indisponible — logs récents :"
+              docker compose -f docker-compose.dev.yml logs --tail=80 backend-dev || true
+              exit 1
+            fi
+
             docker compose -f docker-compose.dev.yml exec -T backend-dev npm run seed:demo
