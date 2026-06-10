@@ -19,6 +19,7 @@ import {
   isTerminalContactStatus,
   statusAfterAgentFirstReply,
 } from './contact-ticket-status';
+import { FeedbackService, UserRatingView } from '../feedback/feedback.service';
 
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 const CLOSED_STATUS = 'Clôturé';
@@ -57,6 +58,7 @@ export interface ContactTicketDetail {
   updatedAt: string;
   closedAt?: string;
   messages: TicketMessageView[];
+  userRating?: UserRatingView;
 }
 
 @Injectable()
@@ -70,6 +72,7 @@ export class ContactTicketsService implements OnModuleInit {
     private readonly legacyRepository: Repository<ContactMessage>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   async onModuleInit() {
@@ -253,6 +256,16 @@ export class ContactTicketsService implements OnModuleInit {
 
     const citizenName = await this.resolveSenderDisplayName(ticket.userId, 'citizen');
 
+    let userRating: UserRatingView | undefined;
+    if (!isAgent) {
+      userRating = await this.feedbackService.findUserRating(
+        tenantId,
+        userId,
+        'contact_ticket',
+        ticket.id,
+      );
+    }
+
     return {
       id: ticket.id,
       subject: ticket.subject,
@@ -264,6 +277,7 @@ export class ContactTicketsService implements OnModuleInit {
       updatedAt: ticket.updatedAt.toISOString(),
       closedAt: ticket.closedAt?.toISOString(),
       messages: await this.mapMessages(messages),
+      userRating,
     };
   }
 

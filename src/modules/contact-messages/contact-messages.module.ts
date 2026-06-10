@@ -9,9 +9,13 @@ import {
 } from './contact-messages.controller';
 import { ContactTicketsService } from './contact-tickets.service';
 import { User } from '../user/user.entity';
+import { FeedbackModule } from '../feedback/feedback.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ContactTicket, ContactTicketMessage, ContactMessage, User])],
+  imports: [
+    TypeOrmModule.forFeature([ContactTicket, ContactTicketMessage, ContactMessage, User]),
+    FeedbackModule,
+  ],
   controllers: [ContactTicketsController, ContactMessagesLegacyController],
   providers: [ContactTicketsService],
   exports: [ContactTicketsService],

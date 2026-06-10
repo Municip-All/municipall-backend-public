@@ -8,6 +8,7 @@ import { ContactTicketMessage } from '../contact-messages/entities/contact-ticke
 import { City } from './entities/city.entity';
 import { AuditService } from '../audit/audit.service';
 import { isTerminalContactStatus } from '../contact-messages/contact-ticket-status';
+import { FeedbackService } from '../feedback/feedback.service';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
@@ -99,6 +100,7 @@ export interface CityDashboardStats {
   suggestionsCount: number;
   suggestionsTrend: number;
   trendData: { name: string; satisfaction: number }[];
+  ratingsCount: number;
   alerts: DashboardAlert[];
 }
 
@@ -130,6 +132,7 @@ export class CityConfigService implements OnModuleInit {
     @InjectRepository(ContactTicketMessage)
     private readonly contactTicketMessageRepository: Repository<ContactTicketMessage>,
     private readonly auditService: AuditService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   private isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
@@ -360,9 +363,11 @@ export class CityConfigService implements OnModuleInit {
     const alerts = this.buildAlerts(pendingReports, pendingTickets, lastBodies);
     const urgentAlertsCount = alerts.filter((a) => a.severity === 'urgent').length;
 
+    const satisfactionSummary = await this.feedbackService.getSatisfactionSummary(cityId);
+
     return {
-      satisfaction: 78,
-      satisfactionTrend: 5,
+      satisfaction: satisfactionSummary.satisfaction,
+      satisfactionTrend: satisfactionSummary.satisfactionTrend,
       citizensCount,
       activeReportsCount,
       pendingContactMessagesCount,
@@ -373,15 +378,8 @@ export class CityConfigService implements OnModuleInit {
       reportsTrend: -12,
       suggestionsCount: pendingSuggestionsCount,
       suggestionsTrend: 0,
-      trendData: [
-        { name: 'Lun', satisfaction: 65 },
-        { name: 'Mar', satisfaction: 68 },
-        { name: 'Mer', satisfaction: 62 },
-        { name: 'Jeu', satisfaction: 74 },
-        { name: 'Ven', satisfaction: 79 },
-        { name: 'Sam', satisfaction: 77 },
-        { name: 'Dim', satisfaction: 84 },
-      ],
+      trendData: satisfactionSummary.trendData,
+      ratingsCount: satisfactionSummary.ratingsCount,
       alerts,
     };
   }

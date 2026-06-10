@@ -13,6 +13,7 @@ import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import { resolveReportSenderRole } from '../../core/auth/roles';
 import { AuditService } from '../audit/audit.service';
+import { FeedbackService, UserRatingView } from '../feedback/feedback.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 export interface ReportMessageView {
@@ -75,6 +76,7 @@ export interface ReportDetailView {
   updatedAt: string;
   citizen?: ReportCitizenView;
   messages: ReportMessageView[];
+  userRating?: UserRatingView;
 }
 
 @Injectable()
@@ -90,6 +92,7 @@ export class ReportsService {
     private readonly cityRepository: Repository<City>,
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   async create(tenantId: string, data: CreateReportDto, actorUserId?: number): Promise<Report> {
@@ -295,6 +298,11 @@ export class ReportsService {
       }
     }
 
+    let userRating: UserRatingView | undefined;
+    if (!isAgent && report.userId != null) {
+      userRating = await this.feedbackService.findUserRating(tenantId, userId, 'report', report.id);
+    }
+
     return {
       id: report.id,
       tenantId: report.tenantId,
@@ -310,6 +318,7 @@ export class ReportsService {
       updatedAt: report.updatedAt.toISOString(),
       citizen,
       messages,
+      userRating,
     };
   }
 
