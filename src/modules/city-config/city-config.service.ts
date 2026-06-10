@@ -7,6 +7,7 @@ import { ContactTicket } from '../contact-messages/entities/contact-ticket.entit
 import { ContactTicketMessage } from '../contact-messages/entities/contact-ticket-message.entity';
 import { City } from './entities/city.entity';
 import { AuditService } from '../audit/audit.service';
+import { isTerminalContactStatus } from '../contact-messages/contact-ticket-status';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
@@ -54,6 +55,7 @@ export interface CityConfig {
     name: string;
     category: 'association' | 'groupe-parole' | 'autre';
     description?: string;
+    address?: string;
     contactEmail?: string;
     contactPhone?: string;
     website?: string;
@@ -80,6 +82,7 @@ export interface DashboardAlert {
   subtitle: string;
   createdAt: string;
   entityId: number;
+  contactKind?: 'question' | 'suggestion';
 }
 
 export interface CityDashboardStats {
@@ -154,14 +157,17 @@ export class CityConfigService implements OnModuleInit {
 
     const messageAlerts: DashboardAlert[] = pendingTickets.map((ticket) => {
       const lastBody = lastBodies.get(ticket.id) ?? '';
+      const isSuggestion = ticket.ticketType === 'suggestion';
       return {
         id: `contact-${ticket.id}`,
         type: 'contact',
         severity: this.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
-        title: `Conversation — ${ticket.subject}`,
-        subtitle: lastBody.slice(0, 120) || 'Nouvelle conversation',
+        title: isSuggestion ? `Suggestion — ${ticket.subject}` : `Question — ${ticket.subject}`,
+        subtitle:
+          lastBody.slice(0, 120) || (isSuggestion ? 'Nouvelle suggestion' : 'Nouvelle question'),
         createdAt: ticket.updatedAt.toISOString(),
         entityId: ticket.id,
+        contactKind: isSuggestion ? 'suggestion' : 'question',
       };
     });
 
@@ -320,13 +326,14 @@ export class CityConfigService implements OnModuleInit {
       take: 30,
     });
 
-    const pendingTickets = await this.contactTicketRepository
-      .createQueryBuilder('ticket')
-      .where('ticket.tenant_id = :cityId', { cityId })
-      .andWhere('ticket.status IN (:...statuses)', { statuses: ['En attente', 'En cours'] })
-      .orderBy('ticket.updated_at', 'DESC')
-      .take(30)
-      .getMany();
+    const allTickets = await this.contactTicketRepository.find({
+      where: { tenantId: cityId },
+      order: { updatedAt: 'DESC' },
+      take: 100,
+    });
+    const pendingTickets = allTickets.filter(
+      (t) => !isTerminalContactStatus(t.ticketType ?? 'question', t.status),
+    );
 
     const lastBodies = new Map<number, string>();
     for (const ticket of pendingTickets) {

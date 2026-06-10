@@ -14,6 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContactTicketsService } from './contact-tickets.service';
 import { CreateContactMessageDto } from './dto/create-contact-message.dto';
 import { ReplyContactTicketDto } from './dto/reply-contact-ticket.dto';
+import { UpdateContactTicketStatusDto } from './dto/update-contact-ticket-status.dto';
 import { RequirePermissions } from '../../core/decorators/require-permissions.decorator';
 import { Permission } from '../../core/auth/permissions';
 
@@ -83,6 +84,20 @@ export class ContactTicketsController {
     const role = req.user?.role ?? 'citizen';
     if (!userId) throw new ForbiddenException('Utilisateur non authentifié');
     return this.contactTicketsService.reply(id, tenantId, userId, role, dto);
+  }
+
+  @RequirePermissions(Permission.CONTACT_CLOSE)
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Modifier le statut (agents)' })
+  async updateStatus(
+    @Req() req: AuthedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateContactTicketStatusDto,
+  ) {
+    const tenantId = req.tenantId ?? 'city-1';
+    const userId = req.user?.sub;
+    if (!userId) throw new ForbiddenException('Utilisateur non authentifié');
+    return this.contactTicketsService.updateStatus(id, tenantId, userId, dto.status);
   }
 
   @RequirePermissions(Permission.CONTACT_CLOSE)

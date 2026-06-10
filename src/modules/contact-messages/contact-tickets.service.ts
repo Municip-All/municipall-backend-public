@@ -14,6 +14,11 @@ import { CreateContactMessageDto } from './dto/create-contact-message.dto';
 import { ReplyContactTicketDto } from './dto/reply-contact-ticket.dto';
 import { User } from '../user/user.entity';
 import { resolveReportSenderRole } from '../../core/auth/roles';
+import {
+  isAllowedStatus,
+  isTerminalContactStatus,
+  statusAfterAgentFirstReply,
+} from './contact-ticket-status';
 
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 const CLOSED_STATUS = 'Clôturé';
@@ -214,13 +219,12 @@ export class ContactTicketsService implements OnModuleInit {
   }
 
   async findPendingForTenant(tenantId: string): Promise<ContactTicket[]> {
-    return this.ticketRepository
-      .createQueryBuilder('ticket')
-      .where('ticket.tenant_id = :tenantId', { tenantId })
-      .andWhere('ticket.status IN (:...statuses)', { statuses: ['En attente', 'En cours'] })
-      .orderBy('ticket.updated_at', 'DESC')
-      .take(30)
-      .getMany();
+    const tickets = await this.ticketRepository.find({
+      where: { tenantId },
+      order: { updatedAt: 'DESC' },
+      take: 100,
+    });
+    return tickets.filter((t) => !isTerminalContactStatus(t.ticketType ?? 'question', t.status));
   }
 
   isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
@@ -273,7 +277,7 @@ export class ContactTicketsService implements OnModuleInit {
     const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
     if (!ticket) throw new NotFoundException('Conversation introuvable');
 
-    if (ticket.status === CLOSED_STATUS) {
+    if (isTerminalContactStatus(ticket.ticketType ?? 'question', ticket.status)) {
       throw new BadRequestException('Cette conversation est clôturée');
     }
 
@@ -294,7 +298,7 @@ export class ContactTicketsService implements OnModuleInit {
     );
 
     if (isAgent && ticket.status === 'En attente') {
-      ticket.status = 'En cours';
+      ticket.status = statusAfterAgentFirstReply(ticket.ticketType ?? 'question');
       await this.ticketRepository.save(ticket);
     } else if (!isAgent) {
       ticket.updatedAt = new Date();
@@ -305,26 +309,54 @@ export class ContactTicketsService implements OnModuleInit {
   }
 
   async close(id: number, tenantId: string, agentId: number): Promise<ContactTicketDetail> {
+    return this.updateStatus(id, tenantId, agentId, CLOSED_STATUS);
+  }
+
+  async updateStatus(
+    id: number,
+    tenantId: string,
+    agentId: number,
+    status: string,
+  ): Promise<ContactTicketDetail> {
     const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
     if (!ticket) throw new NotFoundException('Conversation introuvable');
 
-    if (ticket.status === CLOSED_STATUS) {
+    const ticketType = ticket.ticketType ?? 'question';
+    if (isTerminalContactStatus(ticketType, ticket.status)) {
       return this.findById(id, tenantId, agentId, 'agent');
     }
 
-    ticket.status = CLOSED_STATUS;
-    ticket.closedAt = new Date();
-    ticket.closedByUserId = agentId;
-    await this.ticketRepository.save(ticket);
+    if (!isAllowedStatus(ticketType, status)) {
+      throw new BadRequestException(`Statut invalide pour ce type de demande: ${status}`);
+    }
 
-    await this.messageRepository.save(
-      this.messageRepository.create({
-        ticketId: ticket.id,
-        senderId: agentId,
-        senderRole: 'agent',
-        body: '— Conversation clôturée par la mairie. Merci de nous avoir contactés.',
-      }),
-    );
+    if (ticket.status !== status) {
+      ticket.status = status;
+      if (isTerminalContactStatus(ticketType, status)) {
+        ticket.closedAt = new Date();
+        ticket.closedByUserId = agentId;
+      } else {
+        ticket.closedAt = undefined;
+        ticket.closedByUserId = undefined;
+      }
+      await this.ticketRepository.save(ticket);
+
+      const body =
+        ticketType === 'suggestion'
+          ? `Statut de votre suggestion mis à jour : ${status}.`
+          : status === CLOSED_STATUS
+            ? '— Conversation clôturée par la mairie. Merci de nous avoir contactés.'
+            : `Statut mis à jour : ${status}.`;
+
+      await this.messageRepository.save(
+        this.messageRepository.create({
+          ticketId: ticket.id,
+          senderId: agentId,
+          senderRole: 'agent',
+          body,
+        }),
+      );
+    }
 
     return this.findById(id, tenantId, agentId, 'agent');
   }

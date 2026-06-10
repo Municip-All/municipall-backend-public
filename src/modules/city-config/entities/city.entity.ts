@@ -80,6 +80,7 @@ export class City {
     name: string;
     category: 'association' | 'groupe-parole' | 'autre';
     description?: string;
+    address?: string;
     contactEmail?: string;
     contactPhone?: string;
     website?: string;
