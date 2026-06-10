@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Seed script dry-run
+        run: npm run seed:demo -- --dry-run
+
   build-and-push:
     needs: validate-build
     runs-on: ubuntu-latest
@@ -97,3 +100,6 @@ jobs:
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.dev.yml pull
             docker compose -f docker-compose.dev.yml up -d
+            echo "Attente démarrage backend…"
+            sleep 15
+            docker compose -f docker-compose.dev.yml exec -T backend-dev npm run seed:demo
