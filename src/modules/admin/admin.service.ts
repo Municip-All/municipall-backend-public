@@ -43,6 +43,8 @@ function normalizeAssignableRole(role: string): CanonicalRole {
   throw new BadRequestException(`Rôle non autorisé : ${role}`);
 }
 
+export type CityIntegrationType = 'widget' | 'mobile_app' | 'both';
+
 export interface CreateCityData {
   id: string;
   name: string;
@@ -54,6 +56,18 @@ export interface CreateCityData {
   contactPhone?: string;
   contactHelpText?: string;
   dataRetentionPolicy?: string;
+  contractNumber?: string;
+  contractSignedAt?: string;
+  contractNotes?: string;
+  municipalityContactName?: string;
+  municipalityContactRole?: string;
+  municipalityContactEmail?: string;
+  municipalityContactPhone?: string;
+  assignedTechName?: string;
+  assignedTechEmail?: string;
+  salesRepName?: string;
+  salesRepEmail?: string;
+  integrationType?: CityIntegrationType;
   features?: string[];
   isTransportFeatureAllowed?: boolean;
   boundary?: unknown;
@@ -254,6 +268,19 @@ export class AdminService {
       contactEmail,
       contactPhone,
       contactHelpText,
+      contractNumber,
+      contractSignedAt,
+      contractNotes,
+      municipalityContactName,
+      municipalityContactRole,
+      municipalityContactEmail,
+      municipalityContactPhone,
+      assignedTechName,
+      assignedTechEmail,
+      salesRepName,
+      salesRepEmail,
+      integrationType,
+      isTransportFeatureAllowed,
     } = data;
 
     const city = this.cityRepository.create({
@@ -270,6 +297,20 @@ export class AdminService {
       contactEmail,
       contactPhone,
       contactHelpText,
+      contractNumber,
+      contractSignedAt,
+      contractNotes,
+      municipalityContactName,
+      municipalityContactRole,
+      municipalityContactEmail,
+      municipalityContactPhone,
+      assignedTechName,
+      assignedTechEmail,
+      salesRepName,
+      salesRepEmail,
+      integrationType: integrationType ?? 'mobile_app',
+      isTransportFeatureAllowed: isTransportFeatureAllowed ?? false,
+      isTransportFeatureEnabled: false,
     });
 
     const savedCity = await this.cityRepository.save(city);

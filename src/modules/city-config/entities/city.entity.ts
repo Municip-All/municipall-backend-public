@@ -45,6 +45,46 @@ export class City {
   @Column({ name: 'data_retention_policy', type: 'text', nullable: true })
   dataRetentionPolicy?: string;
 
+  /** Référence commerciale du contrat plateforme */
+  @Column({ name: 'contract_number', nullable: true })
+  contractNumber?: string;
+
+  @Column({ name: 'contract_signed_at', type: 'date', nullable: true })
+  contractSignedAt?: string;
+
+  @Column({ name: 'contract_notes', type: 'text', nullable: true })
+  contractNotes?: string;
+
+  /** Interlocuteur principal côté commune (CRM interne) */
+  @Column({ name: 'municipality_contact_name', nullable: true })
+  municipalityContactName?: string;
+
+  @Column({ name: 'municipality_contact_role', nullable: true })
+  municipalityContactRole?: string;
+
+  @Column({ name: 'municipality_contact_email', nullable: true })
+  municipalityContactEmail?: string;
+
+  @Column({ name: 'municipality_contact_phone', nullable: true })
+  municipalityContactPhone?: string;
+
+  /** Équipe Municip'All rattachée au dossier */
+  @Column({ name: 'assigned_tech_name', nullable: true })
+  assignedTechName?: string;
+
+  @Column({ name: 'assigned_tech_email', nullable: true })
+  assignedTechEmail?: string;
+
+  @Column({ name: 'sales_rep_name', nullable: true })
+  salesRepName?: string;
+
+  @Column({ name: 'sales_rep_email', nullable: true })
+  salesRepEmail?: string;
+
+  /** widget | mobile_app | both */
+  @Column({ name: 'integration_type', default: 'mobile_app' })
+  integrationType!: string;
+
   @Column('simple-array')
   features!: string[];
 
