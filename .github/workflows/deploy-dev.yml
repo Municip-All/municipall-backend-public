@@ -126,4 +126,4 @@ jobs:
               exit 1
             fi
 
-            docker compose -f docker-compose.dev.yml exec -T backend-dev npm run seed:demo
+            echo "Déploiement terminé. Seed de démo : via WebAdmin (Base de données) ou workflow seed-dev.yml."

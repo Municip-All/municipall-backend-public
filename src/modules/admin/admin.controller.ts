@@ -25,6 +25,8 @@ import { PlatformAdminGuard } from '../../core/guards/platform-admin.guard';
 import { StaffService } from '../staff/staff.service';
 import { CreateMayorDto } from '../staff/dto/create-staff-invitation.dto';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
+import { DemoSeedService } from './demo-seed.service';
+import { RunDemoSeedDto } from './dto/run-demo-seed.dto';
 
 @Public()
 @UseGuards(PlatformAdminGuard)
@@ -35,6 +37,7 @@ export class AdminController {
     private readonly dockerService: DockerService,
     private readonly databaseService: DatabaseService,
     private readonly staffService: StaffService,
+    private readonly demoSeedService: DemoSeedService,
     @InjectRepository(Invitation)
     private invitationRepository: Repository<Invitation>,
   ) {}
@@ -233,6 +236,25 @@ export class AdminController {
     return {
       success: true,
       data: activity,
+    };
+  }
+
+  @Get('demo/seed/status')
+  getDemoSeedStatus() {
+    return {
+      success: true,
+      data: {
+        enabled: this.demoSeedService.isEnabled(),
+      },
+    };
+  }
+
+  @Post('demo/seed')
+  async runDemoSeed(@Body() body: RunDemoSeedDto) {
+    const result = await this.demoSeedService.runSeed({ reset: body.reset });
+    return {
+      success: true,
+      data: result,
     };
   }
 
