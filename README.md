@@ -1,233 +1,160 @@
-## Description
+# Municip'All — Backend API
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+API REST NestJS pour la plateforme **Municip'All**, solution SaaS de marque blanche dédiée aux collectivités françaises. Elle alimente l'application mobile citoyenne, le backoffice mairie et le panneau d'administration plateforme.
 
-## Project setup
+## Vue d'ensemble
 
-```bash
-$ npm install
-```
+| Élément | Détail |
+|---------|--------|
+| Framework | NestJS 11, TypeScript 5 |
+| Base de données | PostgreSQL + PostGIS (TypeORM) |
+| Cache / files | Redis 7, BullMQ |
+| Auth | JWT (Passport), RBAC par permissions |
+| Documentation | Swagger UI sur `/docs` |
+| Préfixe API | `/api/v1` |
+| Port par défaut | `3000` |
 
-Rôle de chaque fichier
-
-┌─────────────────┬──────────────────────────────────────┐
-│ Fichier │ Rôle │
-├─────────────────┼──────────────────────────────────────┤
-│ _.entity.ts │ Définit la structure de la table SQL │
-├─────────────────┼──────────────────────────────────────┤
-│ _.repository.ts │ Requêtes SQL (find, save, delete...) │
-├─────────────────┼──────────────────────────────────────┤
-│ _.services.ts │ Logique métier │
-├─────────────────┼──────────────────────────────────────┤
-│ _.controller.ts │ Routes HTTP (GET, POST...) │
-├─────────────────┼──────────────────────────────────────┤
-│ \*.module.ts │ Regroupe tout + enregistre l'entity │
-└─────────────────┴──────────────────────────────────────┘
-
-## Compile and run the project
-
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-
-# Municipall Monorepo
-
-Ce monorépo contient l'ensemble du projet Municipall, incluant le backend API et la configuration de la base de données.
-
-## 📁 Structure du projet
+## Architecture
 
 ```
-municipall-monorepo/
-├── packages/
-│   ├── backend/          # API NestJS
-│   └── database/         # Configuration PostgreSQL avec Docker
-├── package.json          # Configuration du monorépo
-└── README.md
+src/
+├── main.ts                 # Bootstrap, Swagger, CORS, préfixe global
+├── app.module.ts           # Module racine
+├── core/                   # Auth, guards, decorators, interceptors
+├── database/               # Migration de schéma (production)
+├── modules/                # Modules métier
+└── shared/                 # DTOs et types partagés
 ```
 
-## 🚀 Démarrage rapide
+### Modules actifs
 
-### Prérequis
+| Module | Rôle |
+|--------|------|
+| **Auth** | Inscription, connexion citoyen et backoffice, JWT |
+| **Users** | Profil, avatar, mot de passe, préférences, push token |
+| **Reports** | Signalements citoyens géolocalisés + chat |
+| **CityConfig** | Configuration multi-tenant par commune, limites GeoJSON |
+| **Events** | Événements municipaux |
+| **ConstructionWorks** | Travaux et chantiers |
+| **ContactMessages** | Tickets de contact citoyen–mairie |
+| **Staff** | Invitations équipe, KPIs, activité |
+| **Notifications** | Push Expo + WebSocket temps réel |
+| **Widgets** | Données agrégées pour widgets ville |
+| **Weather** | Proxy OpenWeatherMap |
+| **Admin** | Administration plateforme (webadmin) |
+| **AiEngine** | Classification IA des signalements (OpenAI) |
+| **Audit** | Journalisation des actions |
 
-- Node.js (v18 ou supérieur)
+### Multi-tenant
+
+Chaque requête peut porter l'en-tête `x-tenant-id` pour cibler une commune. Les guards globaux (`JwtAuthGuard`, `PermissionsGuard`, `TenantGuard`) appliquent l'authentification et les droits.
+
+## Prérequis
+
+- Node.js 18+
 - npm
-- Docker et Docker Compose
+- Docker et Docker Compose (pour PostgreSQL, Redis, pgAdmin)
 
-### Installation initiale
-
-```bash
-# Installation complète (backend + démarrage de la base de données)
-npm run setup
-```
-
-## 📦 Packages
-
-### Backend (`packages/backend`)
-
-API NestJS avec les modules suivants :
-
-- **Users** : Gestion des utilisateurs
-- **Reports** : Gestion des signalements
-
-#### Commandes disponibles
+## Installation
 
 ```bash
-# Installer les dépendances
-npm run backend:install
-
-# Développement avec hot-reload
-npm run backend:dev
-
-# Build pour la production
-npm run backend:build
-
-# Démarrer en production
-npm run backend:start
-
-# Tests
-npm run backend:test
-
-# Linter
-npm run backend:lint
+npm install
+cp .env.example .env
+# Éditer .env avec vos valeurs
 ```
 
-### Database (`packages/database`)
+## Démarrage
 
-Configuration PostgreSQL avec Docker Compose incluant :
-
-- PostgreSQL (port 5432)
-- pgAdmin (port 8080)
-- Scripts d'initialisation SQL
-
-#### Commandes disponibles
+### Infrastructure locale (PostgreSQL + Redis + pgAdmin)
 
 ```bash
-# Démarrer la base de données
-npm run db:up
-
-# Arrêter la base de données
-npm run db:down
-
-# Voir les logs
-npm run db:logs
-
-# Réinitialiser la base de données (supprime les données)
-npm run db:reset
+docker compose up -d
 ```
 
-## 🛠️ Développement
+| Service | Port | Accès |
+|---------|------|-------|
+| PostgreSQL (PostGIS) | `5432` | user: `postgres`, db: `municipall` |
+| Redis | `6379` | — |
+| pgAdmin | `8080` | http://localhost:8080 |
 
-### Démarrer l'environnement complet
+### API en développement
 
 ```bash
-# Démarre la base de données et le backend en mode dev
-npm run dev
+npm run start:dev
 ```
 
-### Connexion à la base de données
+- API : http://localhost:3000/api/v1
+- Swagger : http://localhost:3000/docs
 
-**PostgreSQL**
+En développement, TypeORM synchronise automatiquement le schéma. En production, `DatabaseSchemaService` applique les migrations sans suppression de données.
 
-- Host: `localhost`
-- Port: `5432`
-- Database: `my_database`
-- User: `postgres`
-- Password: `secret`
+## Variables d'environnement
 
-**pgAdmin**
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `NODE_ENV` | Environnement | `development` |
+| `PORT` | Port HTTP | `3000` |
+| `DATABASE_HOST` | Hôte PostgreSQL | `localhost` |
+| `DATABASE_PORT` | Port PostgreSQL | `5432` |
+| `DATABASE_USER` | Utilisateur DB | `postgres` |
+| `DATABASE_PASSWORD` | Mot de passe DB | — |
+| `DATABASE_NAME` | Nom de la base | `municipall` |
+| `REDIS_HOST` | Hôte Redis | `localhost` |
+| `REDIS_PORT` | Port Redis | `6379` |
+| `JWT_SECRET` | Clé de signature JWT | — |
+| `PLATFORM_ADMIN_KEY` | Clé routes `/admin` (header `x-platform-admin-key`) | — |
+| `OPENAI_API_KEY` | Classification IA des signalements | — |
+| `OPENWEATHER_API_KEY` | API météo | — |
+| `JSON_BODY_LIMIT` | Taille max du body JSON | `15mb` |
+| `DB_ENSURE_SCHEMA` | Forcer sync schéma en prod | `false` |
 
-- URL: http://localhost:8080
-- Email: `admin@admin.com`
-- Password: `admin`
+## Scripts npm
 
-## 📊 Base de données
+| Commande | Description |
+|----------|-------------|
+| `npm run start` | Démarrage standard |
+| `npm run start:dev` | Mode watch (hot-reload) |
+| `npm run start:prod` | Production (`node dist/main`) |
+| `npm run build` | Compilation TypeScript |
+| `npm run lint` | ESLint + fix |
+| `npm run test` | Tests unitaires (Jest) |
+| `npm run test:e2e` | Tests end-to-end |
+| `npm run test:cov` | Couverture de tests |
 
-### Schéma
+## Conventions de code
 
-#### Table `users`
+Chaque module NestJS suit la structure :
 
-- `id`: SERIAL PRIMARY KEY
-- `name`: VARCHAR(50)
-- `email`: VARCHAR(50) UNIQUE
-- `password`: VARCHAR(50) (doit contenir #)
-- `created_at`: TIMESTAMP
-- `updated_at`: TIMESTAMP
+| Fichier | Rôle |
+|---------|------|
+| `*.entity.ts` | Structure de la table SQL |
+| `*.repository.ts` | Requêtes SQL |
+| `*.service.ts` | Logique métier |
+| `*.controller.ts` | Routes HTTP |
+| `*.module.ts` | Regroupement et enregistrement |
 
-#### Table `report`
+## Déploiement Docker
 
-- `id`: SERIAL PRIMARY KEY
-- `user_id`: INT (FK vers users)
-- `content`: VARCHAR(1000)
-- `created_at`: TIMESTAMP
-- `status`: VARCHAR(20) (pending, readed, solved, rejected)
+Le dépôt inclut plusieurs fichiers Compose :
 
-## 🧪 Tests
+| Fichier | Usage |
+|---------|-------|
+| `docker-compose.yml` | Infra locale (Postgres, Redis, pgAdmin) |
+| `docker-compose.dev.yml` | Stack dev (backend port `3001`) |
+| `docker-compose.prod.yml` | Stack production |
+| `docker-compose.proxy.yml` | Nginx Proxy Manager |
 
-```bash
-# Tests du backend
-npm run backend:test
-```
+Le `Dockerfile` utilise Node 20 Alpine en build multi-stage.
 
-## 📝 Licence
+## Écosystème Municip'All
 
-UNLICENSED - Projet privé
+| Projet | Rôle |
+|--------|------|
+| [municipall-frontend-public](../municipall-frontend-public) | Site vitrine marketing |
+| [municipall-mobile-public](../municipall-mobile-public) | Application mobile citoyenne |
+| [municipall-web-backoffice-public](../municipall-web-backoffice-public) | Backoffice mairie |
+| [municipall-webadmin-public](../municipall-webadmin-public) | Administration plateforme |
+
+## Licence
+
+UNLICENSED — Projet privé
