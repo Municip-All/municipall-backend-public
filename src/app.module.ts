@@ -47,8 +47,7 @@ import { TenantGuard } from './core/guards/tenant.guard';
       password: process.env.DATABASE_PASSWORD || 'password',
       database: process.env.DATABASE_NAME || 'municipall',
       autoLoadEntities: true,
-      // Dev : sync auto. Prod : DatabaseSchemaService (tables/colonnes manquantes uniquement).
-      synchronize: process.env.NODE_ENV !== 'production',
+      synchronize: false, // ← Désactivé : schéma créé manuellement, pas de PostGIS requis
     }),
     AuthModule,
     CityConfigModule,
