@@ -70,6 +70,7 @@ export interface CreateCityData {
   integrationType?: CityIntegrationType;
   features?: string[];
   isTransportFeatureAllowed?: boolean;
+  isTransportFeatureEnabled?: boolean;
   boundary?: unknown;
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];
 }
