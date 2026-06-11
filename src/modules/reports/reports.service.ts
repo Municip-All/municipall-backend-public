@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +16,7 @@ import { resolveReportSenderRole } from '../../core/auth/roles';
 import { AuditService } from '../audit/audit.service';
 import { FeedbackService, UserRatingView } from '../feedback/feedback.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AiEngineService } from '../ai-engine/ai-engine.service';
 
 export interface ReportMessageView {
   id: number;
@@ -81,6 +83,8 @@ export interface ReportDetailView {
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     @InjectRepository(Report)
     private readonly reportRepository: Repository<Report>,
@@ -93,6 +97,7 @@ export class ReportsService {
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
     private readonly feedbackService: FeedbackService,
+    private readonly aiEngineService: AiEngineService,
   ) {}
 
   async create(tenantId: string, data: CreateReportDto, actorUserId?: number): Promise<Report> {
@@ -129,7 +134,8 @@ export class ReportsService {
         userId: data.userId,
         status: data.status ?? 'En attente',
         isResident,
-        location: () => `ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)`,
+        lat,
+        lon,
       })
       .returning('id')
       .execute();
@@ -141,6 +147,50 @@ export class ReportsService {
     }
 
     const savedReport = await this.reportRepository.findOneByOrFail({ id });
+
+    // ─── Enrichissement IA (non bloquant) ───
+    try {
+      const aiResult = await this.aiEngineService.enrichReport({
+        report_id: savedReport.id,
+        tenant_id: tenantId,
+        user_id: data.userId,
+        content: data.description ?? '',
+        lat,
+        lon,
+      });
+      if (aiResult) {
+        await this.reportRepository.update(savedReport.id, {
+          category: aiResult.category,
+          aiCategory: aiResult.category,
+          sentimentScore: aiResult.sentiment_score,
+          aiConfidence: aiResult.ai_confidence,
+          isSpam: aiResult.is_spam,
+          duplicateOfId: aiResult.duplicate_of_id ?? undefined,
+          municipalService: aiResult.municipal_service,
+          aiProcessed: true,
+          status: aiResult.is_spam
+            ? 'Rejeté'
+            : aiResult.duplicate_of_id
+              ? 'Doublon'
+              : savedReport.status,
+        });
+        Object.assign(savedReport, {
+          category: aiResult.category,
+          sentimentScore: aiResult.sentiment_score,
+          isSpam: aiResult.is_spam,
+          duplicateOfId: aiResult.duplicate_of_id ?? undefined,
+          municipalService: aiResult.municipal_service,
+          aiProcessed: true,
+          status: aiResult.is_spam
+            ? 'Rejeté'
+            : aiResult.duplicate_of_id
+              ? 'Doublon'
+              : savedReport.status,
+        });
+      }
+    } catch (aiErr) {
+      this.logger.error(`IA enrichment failed: ${(aiErr as Error).message}`);
+    }
 
     if (actorUserId) {
       await this.auditService.log({
@@ -207,14 +257,13 @@ export class ReportsService {
   }
 
   private async extractCoordinates(reportId: number): Promise<{ lat: number; lon: number }> {
-    const raw: unknown = await this.reportRepository.query(
-      `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon FROM reports WHERE id = $1`,
-      [reportId],
-    );
-    const row = Array.isArray(raw) && isCoordinateRow(raw[0]) ? raw[0] : undefined;
+    const report = await this.reportRepository.findOne({
+      where: { id: reportId },
+      select: ['lat', 'lon'],
+    });
     return {
-      lat: row ? Number(row.lat) : 0,
-      lon: row ? Number(row.lon) : 0,
+      lat: report?.lat ?? 0,
+      lon: report?.lon ?? 0,
     };
   }
 
