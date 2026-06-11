@@ -32,11 +32,15 @@ export class ReportsController {
 
   @RequirePermissions(Permission.REPORTS_CREATE)
   @Post()
-  @ApiOperation({ summary: 'Submit a new report' })
+  @ApiOperation({ summary: 'Submit a new report (requires authentication)' })
   @ApiResponse({ status: 201, description: 'Report successfully created.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - authentication required' })
   async createReport(@Req() req: ReportRequest, @Body() reportData: CreateReportDto) {
     const tenantId = req.tenantId ?? 'city-1';
     const userId = req.user?.sub ?? reportData.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Authentication required to submit a report.');
+    }
     return this.reportsService.create(tenantId, { ...reportData, userId }, userId);
   }
 
@@ -68,11 +72,12 @@ export class ReportsController {
     return this.reportsService.findByUser(tenantId, userId);
   }
 
-  @Public()
+  @RequirePermissions(Permission.REPORTS_READ)
   @Get('clustered')
   @ApiOperation({ summary: 'Get clustered reports for map view' })
-  async getClustered(@Body() bounds: unknown) {
-    return this.reportsService.getClusteredReports(bounds);
+  async getClustered(@Req() req: ReportRequest, @Body() bounds: unknown) {
+    const tenantId = req.tenantId ?? 'city-1';
+    return this.reportsService.getClusteredReports(tenantId, bounds);
   }
 
   @RequirePermissions(Permission.REPORTS_READ)
