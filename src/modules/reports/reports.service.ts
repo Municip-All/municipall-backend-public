@@ -1,4 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -31,16 +37,6 @@ export interface ReportCitizenView {
   email: string;
   cityId?: string;
   cityName?: string;
-}
-
-interface CoordinateRow {
-  lat: string | number;
-  lon: string | number;
-}
-
-function isCoordinateRow(value: unknown): value is CoordinateRow {
-  if (typeof value !== 'object' || value === null) return false;
-  return 'lat' in value && 'lon' in value;
 }
 
 export interface ReportListItem {
@@ -158,7 +154,9 @@ export class ReportsService {
       });
       this.logger.log(`AI enrichment queued for report ${savedReport.id}`);
     } catch (queueErr) {
-      this.logger.error(`AI queue dispatch failed for report ${savedReport.id}: ${(queueErr as Error).message}`);
+      this.logger.error(
+        `AI queue dispatch failed for report ${savedReport.id}: ${(queueErr as Error).message}`,
+      );
     }
 
     if (actorUserId) {
@@ -176,7 +174,7 @@ export class ReportsService {
       try {
         await this.reportRepository.manager.increment('User', { id: data.userId }, 'points', 10);
       } catch (error) {
-        console.error('Failed to award points to user:', error);
+        this.logger.error('Failed to award points to user:', error);
       }
     }
 

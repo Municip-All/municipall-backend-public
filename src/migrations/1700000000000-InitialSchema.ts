@@ -54,9 +54,7 @@ export class InitialSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS IDX_reports_tenant_id ON reports (tenant_id)`,
     );
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS IDX_reports_user_id ON reports (user_id)`,
-    );
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_reports_user_id ON reports (user_id)`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_reports_status ON reports (status)`);
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS IDX_reports_created_at ON reports (created_at)`,

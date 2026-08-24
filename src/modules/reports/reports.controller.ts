@@ -74,10 +74,8 @@ export class ReportsController {
   @RequirePermissions(Permission.REPORTS_READ)
   @Get('clustered')
   @ApiOperation({ summary: 'Get clustered reports for map view' })
-  async getClustered(@Req() req: ReportRequest) {
-    const tenantId = req.tenantId ?? 'city-1';
-    // Pour GET, bounds passent via query params
-    return this.reportsService.getClusteredReports(req.query);
+  async getClustered(@Req() _req: ReportRequest) {
+    return this.reportsService.getClusteredReports(_req.query);
   }
 
   @RequirePermissions(Permission.REPORTS_READ)

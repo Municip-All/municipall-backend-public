@@ -15,7 +15,11 @@ import { UserModule } from '../../modules/user/user.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') ?? (() => { throw new Error('JWT_SECRET env variable is required'); })(),
+        secret:
+          config.get<string>('JWT_SECRET') ??
+          (() => {
+            throw new Error('JWT_SECRET env variable is required');
+          })(),
         signOptions: { expiresIn: '1d' },
       }),
     }),

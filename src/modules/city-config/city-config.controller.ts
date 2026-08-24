@@ -79,6 +79,10 @@ export class CityConfigController {
     @Body() data: UpdateCityDto,
     @Req() req: Request & { user?: { sub: number } },
   ) {
-    return this.cityConfigService.updateCityConfig(cityId, data as Record<string, unknown>, req.user?.sub);
+    return this.cityConfigService.updateCityConfig(
+      cityId,
+      data as Record<string, unknown>,
+      req.user?.sub,
+    );
   }
 }

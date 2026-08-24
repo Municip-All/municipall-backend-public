@@ -1,12 +1,12 @@
-import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Queue, Job } from 'bullmq';
+import { Job } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { AiEngineService, AiEnrichmentPayload } from './ai-engine.service';
 
 export const AI_ENRICHMENT_QUEUE = 'ai-enrichment';
 
-export interface AiEnrichmentJobData extends AiEnrichmentPayload {}
+export type AiEnrichmentJobData = AiEnrichmentPayload;
 
 @Processor(AI_ENRICHMENT_QUEUE)
 export class AiEnrichmentProcessor extends WorkerHost {
@@ -21,7 +21,9 @@ export class AiEnrichmentProcessor extends WorkerHost {
 
   async process(job: Job<AiEnrichmentJobData>): Promise<void> {
     const { report_id, tenant_id, user_id, content, lat, lon } = job.data;
-    this.logger.log(`Processing AI enrichment for report ${report_id} (attempt ${job.attemptsMade + 1})`);
+    this.logger.log(
+      `Processing AI enrichment for report ${report_id} (attempt ${job.attemptsMade + 1})`,
+    );
 
     const aiResult = await this.aiEngineService.enrichReport({
       report_id,

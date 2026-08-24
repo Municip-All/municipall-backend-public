@@ -27,8 +27,7 @@ export class AiEngineService {
   private readonly baseUrl: string;
 
   constructor(private configService: ConfigService) {
-    this.baseUrl =
-      this.configService.get<string>('IA_BASE_URL') ?? 'http://localhost:8000';
+    this.baseUrl = this.configService.get<string>('IA_BASE_URL') ?? 'http://localhost:8000';
   }
 
   /**
@@ -49,7 +48,9 @@ export class AiEngineService {
       }
 
       const data = (await res.json()) as AiEnrichmentResult;
-      this.logger.log(`IA enriched report ${payload.report_id} → category=${data.category} spam=${data.is_spam}`);
+      this.logger.log(
+        `IA enriched report ${payload.report_id} → category=${data.category} spam=${data.is_spam}`,
+      );
       return data;
     } catch (err) {
       this.logger.error(`IA enrich unreachable: ${(err as Error).message}`);
@@ -60,7 +61,10 @@ export class AiEngineService {
   /**
    * Chatbot citoyen via l'IA.
    */
-  async chatCitoyen(user_id: string, message: string): Promise<{ reply: string; category: string; sentiment_score: number } | null> {
+  async chatCitoyen(
+    user_id: string,
+    message: string,
+  ): Promise<{ reply: string; category: string; sentiment_score: number } | null> {
     try {
       const res = await fetch(`${this.baseUrl}/reporting/chat/citoyen`, {
         method: 'POST',

@@ -11,7 +11,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET ?? (() => { throw new Error('JWT_SECRET env variable is required'); })(),
+      secretOrKey:
+        process.env.JWT_SECRET ??
+        (() => {
+          throw new Error('JWT_SECRET env variable is required');
+        })(),
     });
   }
 

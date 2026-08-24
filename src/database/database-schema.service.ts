@@ -63,9 +63,9 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
   private async ensureAiColumns() {
     const qRunner = this.dataSource.createQueryRunner();
     try {
-      const columns: { column_name: string }[] = await qRunner.query(
+      const columns: { column_name: string }[] = (await qRunner.query(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'reports'`,
-      );
+      )) as { column_name: string }[];
       const existing = new Set(columns.map((c) => c.column_name));
       const alters: string[] = [];
 
@@ -76,19 +76,25 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
         alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_confidence real`);
       }
       if (!existing.has('is_spam')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_spam boolean NOT NULL DEFAULT false`);
+        alters.push(
+          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_spam boolean NOT NULL DEFAULT false`,
+        );
       }
       if (!existing.has('duplicate_of_id')) {
         alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_of_id integer`);
       }
       if (!existing.has('municipal_service')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS municipal_service character varying`);
+        alters.push(
+          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS municipal_service character varying`,
+        );
       }
       if (!existing.has('ai_category')) {
         alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_category character varying`);
       }
       if (!existing.has('ai_processed')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_processed boolean NOT NULL DEFAULT false`);
+        alters.push(
+          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_processed boolean NOT NULL DEFAULT false`,
+        );
       }
       if (!existing.has('embedding')) {
         alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS embedding vector(384)`);

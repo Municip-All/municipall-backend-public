@@ -1,13 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsString,
-  IsBoolean,
-  IsArray,
-  ValidateNested,
-  IsObject,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsBoolean, IsArray, IsObject } from 'class-validator';
 
 export class UpdateCityDto {
   @ApiPropertyOptional()
