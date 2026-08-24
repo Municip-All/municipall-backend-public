@@ -80,15 +80,27 @@ export class DatabaseService {
     }
   }
 
+  private static readonly FORBIDDEN_KEYWORDS = [
+    'DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE', 'TRUNCATE',
+    'GRANT', 'REVOKE', 'COPY', 'VACUUM', 'REINDEX', 'CLUSTER',
+  ];
+
   async executeQuery(query: string): Promise<Record<string, unknown>[] | { error: string }> {
     try {
-      // Execute raw query (DANGEROUS: allows anything)
+      const upper = query.trim().toUpperCase();
+      for (const kw of DatabaseService.FORBIDDEN_KEYWORDS) {
+        if (upper.startsWith(kw + ' ') || upper.startsWith(kw + ';') || upper === kw) {
+          return { error: `Opération interdite : ${kw}. Seuls les SELECT sont autorisés.` };
+        }
+      }
+      if (!upper.startsWith('SELECT')) {
+        return { error: 'Seules les requêtes SELECT sont autorisées.' };
+      }
       const result = (await this.dataSource.query(query)) as unknown as Record<string, unknown>[];
       return result;
     } catch (error) {
       console.error('Error executing query:', error);
       const err = error as Error;
-      // Return error to be displayed in UI instead of crashing
       return { error: err.message || 'Query execution failed' };
     }
   }
