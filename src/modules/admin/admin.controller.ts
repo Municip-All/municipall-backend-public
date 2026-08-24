@@ -22,6 +22,7 @@ import { Invitation } from './entities/invitation.entity';
 import { Repository } from 'typeorm';
 import { Public } from '../../core/decorators/public.decorator';
 import { PlatformAdminGuard } from '../../core/guards/platform-admin.guard';
+import { randomBytes } from 'crypto';
 import { StaffService } from '../staff/staff.service';
 import { CreateMayorDto } from '../staff/dto/create-staff-invitation.dto';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
@@ -218,7 +219,7 @@ export class AdminController {
       cityId,
       role: body.role ?? 'assistant',
       status: 'pending',
-      token: Math.random().toString(36).substring(2) + Date.now().toString(36),
+      token: randomBytes(32).toString('hex'),
       expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
