@@ -12,7 +12,6 @@ import { CityConfigModule } from './modules/city-config/city-config.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { AiEngineModule } from './modules/ai-engine/ai-engine.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { IntegrationModule } from './modules/integration/integration.module';
 import { WidgetsModule } from './modules/widgets/widgets.module';
 import { WeatherModule } from './modules/weather/weather.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -60,7 +59,6 @@ import { TenantGuard } from './core/guards/tenant.guard';
     ReportsModule,
     AiEngineModule,
     NotificationsModule,
-    IntegrationModule,
     WidgetsModule,
     WeatherModule,
     AdminModule,
