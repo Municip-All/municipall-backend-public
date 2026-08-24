@@ -16,7 +16,6 @@ import { ReplyReportDto } from './dto/reply-report.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RequirePermissions } from '../../core/decorators/require-permissions.decorator';
 import { Permission } from '../../core/auth/permissions';
-import { Public } from '../../core/decorators/public.decorator';
 import { resolveReportSenderRole } from '../../core/auth/roles';
 
 interface ReportRequest extends Request {
@@ -75,9 +74,10 @@ export class ReportsController {
   @RequirePermissions(Permission.REPORTS_READ)
   @Get('clustered')
   @ApiOperation({ summary: 'Get clustered reports for map view' })
-  async getClustered(@Req() req: ReportRequest, @Body() bounds: unknown) {
+  async getClustered(@Req() req: ReportRequest) {
     const tenantId = req.tenantId ?? 'city-1';
-    return this.reportsService.getClusteredReports(tenantId, bounds);
+    // Pour GET, bounds passent via query params
+    return this.reportsService.getClusteredReports(req.query);
   }
 
   @RequirePermissions(Permission.REPORTS_READ)
