@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -9,9 +10,14 @@ import { UserModule } from '../../modules/user/user.module';
 @Module({
   imports: [
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'fallback_secret',
-      signOptions: { expiresIn: '1d' },
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET') ?? (() => { throw new Error('JWT_SECRET env variable is required'); })(),
+        signOptions: { expiresIn: '1d' },
+      }),
     }),
     UserModule,
   ],
