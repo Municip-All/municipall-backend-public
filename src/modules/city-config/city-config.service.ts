@@ -3,15 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
-import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
-import { ContactTicketMessage } from '../contact-messages/entities/contact-ticket-message.entity';
 import { City } from './entities/city.entity';
 import { AuditService } from '../audit/audit.service';
-import { isTerminalContactStatus } from '../contact-messages/contact-ticket-status';
 import { FeedbackService } from '../feedback/feedback.service';
+import { ContactTicketsService } from '../contact-messages/contact-tickets.service';
+import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
-const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 
 export interface CityContactConfig {
   email?: string;
@@ -127,18 +125,10 @@ export class CityConfigService implements OnModuleInit {
     private readonly reportRepository: Repository<Report>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(ContactTicket)
-    private readonly contactTicketRepository: Repository<ContactTicket>,
-    @InjectRepository(ContactTicketMessage)
-    private readonly contactTicketMessageRepository: Repository<ContactTicketMessage>,
+    private readonly contactTicketsService: ContactTicketsService,
     private readonly auditService: AuditService,
     private readonly feedbackService: FeedbackService,
   ) {}
-
-  private isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
-    const text = `${ticket.subject} ${lastBody ?? ''}`;
-    return URGENT_KEYWORDS.test(text);
-  }
 
   private buildAlerts(
     pendingReports: Report[],
@@ -164,7 +154,7 @@ export class CityConfigService implements OnModuleInit {
       return {
         id: `contact-${ticket.id}`,
         type: 'contact',
-        severity: this.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
+        severity: this.contactTicketsService.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
         title: isSuggestion ? `Suggestion — ${ticket.subject}` : `Question — ${ticket.subject}`,
         subtitle:
           lastBody.slice(0, 120) || (isSuggestion ? 'Nouvelle suggestion' : 'Nouvelle question'),
@@ -329,21 +319,13 @@ export class CityConfigService implements OnModuleInit {
       take: 30,
     });
 
-    const allTickets = await this.contactTicketRepository.find({
-      where: { tenantId: cityId },
-      order: { updatedAt: 'DESC' },
-      take: 100,
-    });
-    const pendingTickets = allTickets.filter(
-      (t) => !isTerminalContactStatus(t.ticketType ?? 'question', t.status),
-    );
+    const allTickets = await this.contactTicketsService.findPendingForTenant(cityId);
+
+    const pendingTickets = allTickets;
 
     const lastBodies = new Map<number, string>();
     for (const ticket of pendingTickets) {
-      const last = await this.contactTicketMessageRepository.findOne({
-        where: { ticketId: ticket.id },
-        order: { createdAt: 'DESC' },
-      });
+      const last = await this.contactTicketsService.findLastMessage(ticket.id);
       if (last) lastBodies.set(ticket.id, last.body);
     }
 

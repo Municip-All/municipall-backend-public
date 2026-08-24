@@ -140,6 +140,13 @@ export class ContactTicketsService implements OnModuleInit {
     return result;
   }
 
+  async findLastMessage(ticketId: number): Promise<ContactTicketMessage | null> {
+    return this.messageRepository.findOne({
+      where: { ticketId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   private async getLastMessage(ticketId: number) {
     return this.messageRepository.findOne({
       where: { ticketId },
