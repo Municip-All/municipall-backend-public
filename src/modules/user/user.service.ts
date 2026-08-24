@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -25,14 +25,14 @@ export class UserService {
 
   async updateAvatar(userId: number, avatarUrl: string): Promise<User> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
     user.avatar_url = avatarUrl;
     return this.userRepository.save(user);
   }
 
   async updateProfile(userId: number, profileData: Partial<User>): Promise<User> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
     // Only allow updating certain fields
     if (profileData.name) user.name = profileData.name;
@@ -49,10 +49,12 @@ export class UserService {
     passwordData: { current: string; new: string; confirm: string },
   ): Promise<User> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
     if (passwordData.new !== passwordData.confirm) {
-      throw new BadRequestException('Le nouveau mot de passe et sa confirmation ne correspondent pas.');
+      throw new BadRequestException(
+        'Le nouveau mot de passe et sa confirmation ne correspondent pas.',
+      );
     }
 
     const isMatch = await bcrypt.compare(passwordData.current, user.password);
@@ -66,7 +68,7 @@ export class UserService {
 
   async updatePushToken(userId: number, expoPushToken: string): Promise<User> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
     user.expoPushToken = expoPushToken;
     return this.userRepository.save(user);
   }
@@ -105,7 +107,7 @@ export class UserService {
     points: number;
   }> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
     // Use the entityManager directly to count reports
     const reports = await this.userRepository.manager.count('Report', {

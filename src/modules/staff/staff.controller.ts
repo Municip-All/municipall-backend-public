@@ -7,6 +7,7 @@ import {
   Req,
   ParseIntPipe,
   DefaultValuePipe,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -41,7 +42,7 @@ export class StaffController {
   async createInvitation(@Req() req: StaffRequest, @Body() dto: CreateStaffInvitationDto) {
     const tenantId = req.tenantId ?? req.user?.cityId ?? '';
     const userId = req.user?.sub;
-    if (!userId) throw new Error('User required');
+    if (!userId) throw new UnauthorizedException('User required');
     return this.staffService.createInvitation(tenantId, userId, dto);
   }
 

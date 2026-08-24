@@ -38,6 +38,7 @@ export class AcceptInvitationDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @MinLength(8)
   @MaxLength(128)
   password!: string;
 }
