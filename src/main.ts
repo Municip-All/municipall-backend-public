@@ -10,11 +10,12 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: jsonBodyLimit });
   app.useBodyParser('urlencoded', { limit: jsonBodyLimit, extended: true });
 
-  // Enable CORS for mobile app and web dashboard access
+  const allowedOrigins = (process.env.CORS_ORIGINS || '*').split(',').map((s) => s.trim());
   app.enableCors({
-    origin: '*',
+    origin: allowedOrigins.length === 1 && allowedOrigins[0] === '*' ? '*' : allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Accept, Authorization, x-tenant-id, x-platform-admin-key',
+    credentials: true,
   });
 
   // Global prefixes and pipes
