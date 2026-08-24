@@ -18,7 +18,10 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:demo": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts"
+    "seed:demo": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts",
+    "migration:run": "ts-node -r tsconfig-paths/register src/data-source.ts && typeorm migration:run -d src/data-source.ts",
+    "migration:generate": "ts-node -r tsconfig-paths/register node_modules/.bin/typeorm migration:generate -d src/data-source.ts",
+    "migration:create": "ts-node -r tsconfig-paths/register node_modules/.bin/typeorm migration:create"
   },
   "dependencies": {
     "@langchain/openai": "^1.4.4",
