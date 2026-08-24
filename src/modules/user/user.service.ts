@@ -1,9 +1,12 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { mergeNotificationPreferences, NotificationPreferences } from './notification-preferences';
+
+const SALT_ROUNDS = 12;
 
 @Injectable()
 export class UserService {
@@ -43,16 +46,21 @@ export class UserService {
 
   async updatePassword(
     userId: number,
-    passwordData: { current: string; new: string },
+    passwordData: { current: string; new: string; confirm: string },
   ): Promise<User> {
     const user = await this.findById(userId);
     if (!user) throw new Error('User not found');
 
-    if (user.password !== passwordData.current) {
+    if (passwordData.new !== passwordData.confirm) {
+      throw new BadRequestException('Le nouveau mot de passe et sa confirmation ne correspondent pas.');
+    }
+
+    const isMatch = await bcrypt.compare(passwordData.current, user.password);
+    if (!isMatch) {
       throw new BadRequestException('Current password incorrect');
     }
 
-    user.password = passwordData.new;
+    user.password = await bcrypt.hash(passwordData.new, SALT_ROUNDS);
     return this.userRepository.save(user);
   }
 

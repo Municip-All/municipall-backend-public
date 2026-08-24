@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import * as os from 'os';
@@ -9,6 +10,8 @@ import { AuditService } from '../audit/audit.service';
 
 import { Invitation } from './entities/invitation.entity';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
+
+const SALT_ROUNDS = 12;
 
 const USER_PUBLIC_FIELDS = [
   'id',
@@ -172,7 +175,7 @@ export class AdminService {
       user.cityId = cityId;
     }
     if (dto.password) {
-      user.password = dto.password;
+      user.password = await bcrypt.hash(dto.password, SALT_ROUNDS);
     }
 
     const staffRoles = [CanonicalRole.MAYOR, CanonicalRole.ASSISTANT, CanonicalRole.AGENT];
@@ -405,7 +408,7 @@ export class AdminService {
       email: invitation.email,
       role: invitation.role ?? 'assistant',
       cityId: invitation.cityId,
-      password: 'password123',
+      password: await bcrypt.hash('password123', SALT_ROUNDS),
     });
     await this.userRepository.save(dummyAgent);
 

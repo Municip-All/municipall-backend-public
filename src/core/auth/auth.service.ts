@@ -1,9 +1,12 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { isBackofficeRole, getPermissionsForRole } from './permissions';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { UserService } from '../../modules/user/user.service';
 import { UserRepository } from '../../modules/user/user.repository';
 import { User } from '../../modules/user/user.entity';
+
+const SALT_ROUNDS = 12;
 
 export interface JwtPayload {
   sub: number;
@@ -22,8 +25,7 @@ export class AuthService {
 
   async validateUser(email: string, pass: string): Promise<User | null> {
     const user = await this.userService.findByEmail(email);
-    // Encryption to be implemented by colleague. Using direct comparison for now.
-    if (user && user.password === pass) {
+    if (user && (await bcrypt.compare(pass, user.password))) {
       return user;
     }
     return null;
@@ -57,9 +59,11 @@ export class AuthService {
   }
 
   async signup(userData: Partial<User>) {
+    const hashedPassword = await bcrypt.hash(userData.password ?? '', SALT_ROUNDS);
     const user = await this.userRepository.CreateUser({
       ...userData,
-      role: 'Citoyen', // Default role for public signup
+      password: hashedPassword,
+      role: 'Citoyen',
     });
     return this.login(user);
   }

@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { User } from '../user/user.entity';
 import { Invitation } from '../admin/entities/invitation.entity';
 import { AuditService } from '../audit/audit.service';
@@ -99,7 +100,7 @@ export class StaffService {
       .map((u) => ({
         id: u.id,
         name: u.name,
-        surname: u.surname,
+        surname: u.surname || '',
         email: u.email,
         role: u.role,
         createdAt: u.created_at.toISOString(),
@@ -165,11 +166,12 @@ export class StaffService {
       throw new BadRequestException('Cette invitation a expiré.');
     }
 
+    const hashedPassword = await bcrypt.hash(data.password, 12);
     const user = this.userRepository.create({
       email: invitation.email,
       name: data.name,
       surname: data.surname,
-      password: data.password,
+      password: hashedPassword,
       role: invitation.role,
       cityId: invitation.cityId,
     });
@@ -201,11 +203,12 @@ export class StaffService {
       throw new BadRequestException('Un compte existe déjà avec cet e-mail.');
     }
 
+    const hashedPassword = await bcrypt.hash(data.password, 12);
     const mayor = this.userRepository.create({
       email: data.email,
       name: data.name,
       surname: data.surname,
-      password: data.password,
+      password: hashedPassword,
       role: CanonicalRole.MAYOR,
       cityId: data.cityId,
     });
