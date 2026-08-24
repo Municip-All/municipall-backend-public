@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 interface OpenWeatherResponse {
@@ -14,6 +14,7 @@ interface OpenWeatherResponse {
 
 @Injectable()
 export class WeatherService {
+  private readonly logger = new Logger(WeatherService.name);
   private readonly apiKey: string;
   private readonly baseUrl = 'https://api.openweathermap.org/data/2.5/weather';
 
@@ -46,7 +47,7 @@ export class WeatherService {
         city: data.name,
       };
     } catch (error) {
-      console.error('WeatherService Error:', error);
+      this.logger.error('WeatherService Error:', error);
       return {
         error: 'Failed to fetch weather data',
         status: 500,

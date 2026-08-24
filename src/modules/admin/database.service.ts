@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 interface TableSchemaRow {
@@ -16,6 +16,8 @@ interface CountRow {
 
 @Injectable()
 export class DatabaseService {
+  private readonly logger = new Logger(DatabaseService.name);
+
   constructor(private readonly dataSource: DataSource) {}
 
   async getTables(): Promise<string[]> {
@@ -31,7 +33,7 @@ export class DatabaseService {
       const result = (await this.dataSource.query(query)) as unknown as TableSchemaRow[];
       return result.map((row: TableSchemaRow) => row.table_name);
     } catch (error) {
-      console.error('Error fetching tables:', error);
+      this.logger.error('Error fetching tables:', error);
       throw new InternalServerErrorException('Failed to fetch tables');
     }
   }
@@ -75,7 +77,7 @@ export class DatabaseService {
         total,
       };
     } catch (error) {
-      console.error(`Error fetching data for table ${tableName}:`, error);
+      this.logger.error(`Error fetching data for table ${tableName}:`, error);
       throw new InternalServerErrorException(`Failed to fetch data for table ${tableName}`);
     }
   }
@@ -120,7 +122,7 @@ export class DatabaseService {
       const result = (await this.dataSource.query(query)) as unknown as Record<string, unknown>[];
       return result;
     } catch (error) {
-      console.error('Error executing query:', error);
+      this.logger.error('Error executing query:', error);
       const err = error as Error;
       return { error: err.message || 'Query execution failed' };
     }

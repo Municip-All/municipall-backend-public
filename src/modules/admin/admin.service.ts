@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,7 @@ import { City } from '../city-config/entities/city.entity';
 import * as os from 'os';
 import { CanonicalRole } from '../../core/auth/permissions';
 import { AuditService } from '../audit/audit.service';
+import { FeedbackService } from '../feedback/feedback.service';
 
 import { Invitation } from './entities/invitation.entity';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
@@ -81,6 +82,8 @@ export interface CreateCityData {
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -89,6 +92,7 @@ export class AdminService {
     @InjectRepository(Invitation)
     private invitationRepository: Repository<Invitation>,
     private readonly auditService: AuditService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   async getBusinessStats() {
@@ -97,12 +101,23 @@ export class AdminService {
     const citizens = await this.userRepository.count({ where: { role: 'citizen' } });
     const cities = await this.cityRepository.count();
 
+    let satisfaction = 0;
+    try {
+      const allFeedbacks = await this.feedbackService.listForMayor('', 10000);
+      if (allFeedbacks.length > 0) {
+        const avg = allFeedbacks.reduce((sum, f) => sum + f.stars, 0) / allFeedbacks.length;
+        satisfaction = Math.round((avg / 5) * 100) / 100;
+      }
+    } catch {
+      satisfaction = 0;
+    }
+
     return {
       cities,
       users: totalUsers,
       agents,
       citizens,
-      satisfaction: 4.8,
+      satisfaction,
     };
   }
 
@@ -235,7 +250,7 @@ export class AdminService {
         order: { name: 'ASC' },
       });
     } catch (error) {
-      console.error('[DATABASE ERROR] Failed to fetch cities:', error);
+      this.logger.error('[DATABASE ERROR] Failed to fetch cities:', error);
       // Fallback: try to fetch without geometry/json fields if they are corrupted
       try {
         return await this.cityRepository.find({
@@ -252,7 +267,7 @@ export class AdminService {
           order: { name: 'ASC' },
         });
       } catch (innerError) {
-        console.error('[DATABASE ERROR] Fatal city fetch error:', innerError);
+        this.logger.error('[DATABASE ERROR] Fatal city fetch error:', innerError);
         return [];
       }
     }

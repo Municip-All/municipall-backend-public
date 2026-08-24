@@ -1,6 +1,12 @@
-import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
 import { City } from './entities/city.entity';
@@ -118,6 +124,8 @@ function resolveOfficialName(city: City): string {
 
 @Injectable()
 export class CityConfigService implements OnModuleInit {
+  private readonly logger = new Logger(CityConfigService.name);
+
   constructor(
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
@@ -186,7 +194,7 @@ export class CityConfigService implements OnModuleInit {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(
+      this.logger.warn(
         'CityConfigService: Could not seed default city. The "cities" table might not exist yet.',
         errorMessage,
       );
@@ -347,6 +355,43 @@ export class CityConfigService implements OnModuleInit {
 
     const satisfactionSummary = await this.feedbackService.getSatisfactionSummary(cityId);
 
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const currentMonthReports = await this.reportRepository.count({
+      where: { tenantId: cityId, createdAt: LessThanOrEqual(now) },
+    });
+
+    const previousMonthReports = await this.reportRepository.count({
+      where: { tenantId: cityId, createdAt: LessThanOrEqual(previousMonthStart) },
+    });
+
+    let reportsTrend = 0;
+    if (previousMonthReports > 0) {
+      reportsTrend = Math.round(
+        ((currentMonthReports - previousMonthReports) / previousMonthReports) * 100,
+      );
+    }
+
+    const currentMonthSuggestions = await this.contactTicketsService.findPendingForTenant(cityId);
+    const currentSuggCount = currentMonthSuggestions.filter(
+      (t) => t.ticketType === 'suggestion' && t.createdAt >= currentMonthStart,
+    ).length;
+    const previousSuggCount = currentMonthSuggestions.filter(
+      (t) =>
+        t.ticketType === 'suggestion' &&
+        t.createdAt >= previousMonthStart &&
+        t.createdAt < currentMonthStart,
+    ).length;
+
+    let suggestionsTrend = 0;
+    if (previousSuggCount > 0) {
+      suggestionsTrend = Math.round(
+        ((currentSuggCount - previousSuggCount) / previousSuggCount) * 100,
+      );
+    }
+
     return {
       satisfaction: satisfactionSummary.satisfaction,
       satisfactionTrend: satisfactionSummary.satisfactionTrend,
@@ -357,9 +402,9 @@ export class CityConfigService implements OnModuleInit {
       reportsInProgressCount,
       pendingTotalCount: activeReportsCount + pendingContactMessagesCount,
       urgentAlertsCount,
-      reportsTrend: -12,
+      reportsTrend,
       suggestionsCount: pendingSuggestionsCount,
-      suggestionsTrend: 0,
+      suggestionsTrend,
       trendData: satisfactionSummary.trendData,
       ratingsCount: satisfactionSummary.ratingsCount,
       alerts,
