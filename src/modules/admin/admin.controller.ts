@@ -28,6 +28,7 @@ import { CreateMayorDto } from '../staff/dto/create-staff-invitation.dto';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
 import { DemoSeedService } from './demo-seed.service';
 import { RunDemoSeedDto } from './dto/run-demo-seed.dto';
+import { DatabaseQueryDto } from './dto/database-query.dto';
 
 @Public()
 @UseGuards(PlatformAdminGuard)
@@ -125,7 +126,8 @@ export class AdminController {
   }
 
   @Post('database/query')
-  async executeQuery(@Body('query') query: string) {
+  async executeQuery(@Body() body: DatabaseQueryDto) {
+    const query = body.query;
     if (!query) {
       return { success: false, error: 'Query is required' };
     }
