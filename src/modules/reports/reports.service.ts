@@ -1,12 +1,8 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Report } from './entities/report.entity';
 import { ReportMessage, ReportMessageRole } from './entities/report-message.entity';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -17,6 +13,7 @@ import { AuditService } from '../audit/audit.service';
 import { FeedbackService, UserRatingView } from '../feedback/feedback.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AiEngineService } from '../ai-engine/ai-engine.service';
+import { AI_ENRICHMENT_QUEUE } from '../ai-engine/ai-enrichment.processor';
 
 export interface ReportMessageView {
   id: number;
@@ -98,6 +95,7 @@ export class ReportsService {
     private readonly notificationsService: NotificationsService,
     private readonly feedbackService: FeedbackService,
     private readonly aiEngineService: AiEngineService,
+    @InjectQueue(AI_ENRICHMENT_QUEUE) private readonly aiQueue: Queue,
   ) {}
 
   async create(tenantId: string, data: CreateReportDto, actorUserId?: number): Promise<Report> {
@@ -148,9 +146,9 @@ export class ReportsService {
 
     const savedReport = await this.reportRepository.findOneByOrFail({ id });
 
-    // ─── Enrichissement IA (non bloquant) ───
+    // ─── Enrichissement IA (asynchrone via BullMQ) ───
     try {
-      const aiResult = await this.aiEngineService.enrichReport({
+      await this.aiQueue.add('enrich', {
         report_id: savedReport.id,
         tenant_id: tenantId,
         user_id: data.userId,
@@ -158,38 +156,9 @@ export class ReportsService {
         lat,
         lon,
       });
-      if (aiResult) {
-        await this.reportRepository.update(savedReport.id, {
-          category: aiResult.category,
-          aiCategory: aiResult.category,
-          sentimentScore: aiResult.sentiment_score,
-          aiConfidence: aiResult.ai_confidence,
-          isSpam: aiResult.is_spam,
-          duplicateOfId: aiResult.duplicate_of_id ?? undefined,
-          municipalService: aiResult.municipal_service,
-          aiProcessed: true,
-          status: aiResult.is_spam
-            ? 'Rejeté'
-            : aiResult.duplicate_of_id
-              ? 'Doublon'
-              : savedReport.status,
-        });
-        Object.assign(savedReport, {
-          category: aiResult.category,
-          sentimentScore: aiResult.sentiment_score,
-          isSpam: aiResult.is_spam,
-          duplicateOfId: aiResult.duplicate_of_id ?? undefined,
-          municipalService: aiResult.municipal_service,
-          aiProcessed: true,
-          status: aiResult.is_spam
-            ? 'Rejeté'
-            : aiResult.duplicate_of_id
-              ? 'Doublon'
-              : savedReport.status,
-        });
-      }
-    } catch (aiErr) {
-      this.logger.error(`IA enrichment failed: ${(aiErr as Error).message}`);
+      this.logger.log(`AI enrichment queued for report ${savedReport.id}`);
+    } catch (queueErr) {
+      this.logger.error(`AI queue dispatch failed for report ${savedReport.id}: ${(queueErr as Error).message}`);
     }
 
     if (actorUserId) {
