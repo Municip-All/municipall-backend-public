@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import * as os from 'os';
@@ -408,7 +409,7 @@ export class AdminService {
       email: invitation.email,
       role: invitation.role ?? 'assistant',
       cityId: invitation.cityId,
-      password: await bcrypt.hash('password123', SALT_ROUNDS),
+      password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), SALT_ROUNDS),
     });
     await this.userRepository.save(dummyAgent);
 
