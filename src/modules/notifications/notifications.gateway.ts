@@ -6,7 +6,14 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 
-@WebSocketGateway({ cors: true })
+const wsAllowedOrigins = (process.env.CORS_ORIGINS || '*').split(',').map((s) => s.trim());
+
+@WebSocketGateway({
+  cors: {
+    origin: wsAllowedOrigins.length === 1 && wsAllowedOrigins[0] === '*' ? '*' : wsAllowedOrigins,
+    credentials: true,
+  },
+})
 export class NotificationsGateway {
   @WebSocketServer()
   server: Server;

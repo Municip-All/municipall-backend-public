@@ -10,7 +10,11 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: jsonBodyLimit });
   app.useBodyParser('urlencoded', { limit: jsonBodyLimit, extended: true });
 
-  const allowedOrigins = (process.env.CORS_ORIGINS || '*').split(',').map((s) => s.trim());
+  const corsOriginsEnv = process.env.CORS_ORIGINS;
+  if (process.env.NODE_ENV === 'production' && !corsOriginsEnv) {
+    throw new Error('CORS_ORIGINS env variable is required in production');
+  }
+  const allowedOrigins = (corsOriginsEnv || '*').split(',').map((s) => s.trim());
   app.enableCors({
     origin: allowedOrigins.length === 1 && allowedOrigins[0] === '*' ? '*' : allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
