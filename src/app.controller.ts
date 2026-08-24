@@ -11,7 +11,4 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
-  getNice(): string {
-    return this.appService.getNice();
-  }
 }
