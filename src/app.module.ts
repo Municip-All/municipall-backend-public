@@ -1,7 +1,7 @@
 import { InternalServerErrorException, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
@@ -52,25 +52,33 @@ import { TenantGuard } from './core/guards/tenant.guard';
       },
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-      },
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST') || 'localhost',
+          port: parseInt(configService.get<string>('REDIS_PORT') || '6379'),
+        },
+      }),
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: parseInt(process.env.DATABASE_PORT || '5432'),
-      username: process.env.DATABASE_USER || 'postgres',
-      password:
-        process.env.DATABASE_PASSWORD ??
-        (() => {
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const password = configService.get<string>('DATABASE_PASSWORD');
+        if (!password) {
           throw new InternalServerErrorException('DATABASE_PASSWORD env variable is required');
-        })(),
-      database: process.env.DATABASE_NAME || 'municipall',
-      autoLoadEntities: true,
-      synchronize: false, // ← Désactivé : schéma créé manuellement, pas de PostGIS requis
+        }
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DATABASE_HOST') || 'localhost',
+          port: parseInt(configService.get<string>('DATABASE_PORT') || '5432'),
+          username: configService.get<string>('DATABASE_USER') || 'postgres',
+          password,
+          database: configService.get<string>('DATABASE_NAME') || 'municipall',
+          autoLoadEntities: true,
+          synchronize: false,
+        };
+      },
     }),
     AuthModule,
     CityConfigModule,
