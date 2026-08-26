@@ -27,21 +27,24 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
-  // Swagger Configuration
-  const config = new DocumentBuilder()
-    .setTitle("Municip'All API")
-    .setDescription('Robust backend for civic-tech platform')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle("Municip'All API")
+      .setDescription('Robust backend for civic-tech platform')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+  }
 
   const port = process.env.PORT || 3000;
   const host = process.env.HOST || '0.0.0.0';
   await app.listen(port, host);
   logger.log(`Application is running on: http://${host}:${port}/api/v1`);
-  logger.log(`Swagger documentation: http://${host}:${port}/docs`);
+  if (process.env.NODE_ENV !== 'production') {
+    logger.log(`Swagger documentation: http://${host}:${port}/docs`);
+  }
 }
 
 bootstrap().catch((err) => {
