@@ -37,7 +37,7 @@ export class WeatherService {
       const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error(`OpenWeather API returned ${response.status}`);
+        throw new BadGatewayException(`OpenWeather API returned ${response.status}`);
       }
 
       const data = (await response.json()) as OpenWeatherResponse;
