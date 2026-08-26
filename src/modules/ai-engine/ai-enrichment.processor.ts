@@ -38,28 +38,35 @@ export class AiEnrichmentProcessor extends WorkerHost {
       throw new Error(`AI enrichment returned null for report ${report_id}`);
     }
 
-    await this.dataSource.query(
-      `UPDATE reports SET
-        category = $1, ai_category = $1, municipal_service = $2,
-        sentiment_score = $3, ai_confidence = $4, is_spam = $5,
-        duplicate_of_id = $6, ai_processed = TRUE,
-        status = CASE
-          WHEN $5 = TRUE THEN 'Rejeté'
-          WHEN $6 IS NOT NULL THEN 'Doublon'
-          ELSE status
-        END
-      WHERE id = $7 AND tenant_id = $8`,
-      [
-        aiResult.category,
-        aiResult.municipal_service,
-        aiResult.sentiment_score,
-        aiResult.ai_confidence,
-        aiResult.is_spam,
-        aiResult.duplicate_of_id ?? null,
-        report_id,
-        tenant_id,
-      ],
-    );
+    try {
+      await this.dataSource.query(
+        `UPDATE reports SET
+          category = $1, ai_category = $1, municipal_service = $2,
+          sentiment_score = $3, ai_confidence = $4, is_spam = $5,
+          duplicate_of_id = $6, ai_processed = TRUE,
+          status = CASE
+            WHEN $5 = TRUE THEN 'Rejeté'
+            WHEN $6 IS NOT NULL THEN 'Doublon'
+            ELSE status
+          END
+        WHERE id = $7 AND tenant_id = $8`,
+        [
+          aiResult.category,
+          aiResult.municipal_service,
+          aiResult.sentiment_score,
+          aiResult.ai_confidence,
+          aiResult.is_spam,
+          aiResult.duplicate_of_id ?? null,
+          report_id,
+          tenant_id,
+        ],
+      );
+    } catch (dbError) {
+      this.logger.error(
+        `DB update failed for report ${report_id} after successful AI enrichment`,
+        dbError,
+      );
+    }
 
     this.logger.log(`AI enrichment completed for report ${report_id}`);
   }
