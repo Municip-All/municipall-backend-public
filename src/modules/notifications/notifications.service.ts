@@ -96,7 +96,7 @@ export class NotificationsService {
       where: { id: Number(userId) },
     });
     if (!user?.expoPushToken) return { sent: 0, failed: 0 };
-    return this.expoPush.sendBatch([
+    return await this.expoPush.sendBatch([
       {
         to: user.expoPushToken,
         title,

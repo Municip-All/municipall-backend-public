@@ -18,7 +18,7 @@ export class UserService {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository
+    return await this.userRepository
       .createQueryBuilder('user')
       .where('user.email = :email', { email })
       .addSelect('user.password')
@@ -26,11 +26,11 @@ export class UserService {
   }
 
   async findById(id: number): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return await this.userRepository.findOne({ where: { id } });
   }
 
   async findByIdWithPassword(id: number): Promise<User | null> {
-    return this.userRepository
+    return await this.userRepository
       .createQueryBuilder('user')
       .where('user.id = :id', { id })
       .addSelect('user.password')
@@ -41,21 +41,20 @@ export class UserService {
     const user = await this.findById(userId);
     if (!user) throw new NotFoundException('User not found');
     user.avatar_url = avatarUrl;
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
   async updateProfile(userId: number, profileData: UpdateProfileDto): Promise<User> {
     const user = await this.findById(userId);
     if (!user) throw new NotFoundException('User not found');
 
-    // Only allow updating certain fields
     if (profileData.name) user.name = profileData.name;
     if (profileData.surname) user.surname = profileData.surname;
     if (profileData.email) user.email = profileData.email;
     if (profileData.neighborhood) user.neighborhood = profileData.neighborhood;
     if (profileData.cityId) user.cityId = profileData.cityId;
 
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
   async updatePassword(
@@ -77,14 +76,14 @@ export class UserService {
     }
 
     user.password = await bcrypt.hash(passwordData.new, SALT_ROUNDS);
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
   async updatePushToken(userId: number, expoPushToken: string): Promise<User> {
     const user = await this.findById(userId);
     if (!user) throw new NotFoundException('User not found');
     user.expoPushToken = expoPushToken;
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
   async getNotificationPreferences(userId: number): Promise<NotificationPreferences> {
@@ -137,7 +136,7 @@ export class UserService {
 
   async create(userData: CreateUserDto): Promise<User> {
     const newUser = this.userRepository.create(userData);
-    return this.userRepository.save(newUser);
+    return await this.userRepository.save(newUser);
   }
 
   async deleteUser(id: number): Promise<void> {

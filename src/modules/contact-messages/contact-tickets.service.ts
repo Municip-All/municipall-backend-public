@@ -141,7 +141,7 @@ export class ContactTicketsService implements OnModuleInit {
   }
 
   async findLastMessage(ticketId: number): Promise<ContactTicketMessage | null> {
-    return this.messageRepository.findOne({
+    return await this.messageRepository.findOne({
       where: { ticketId },
       order: { createdAt: 'DESC' },
     });
@@ -319,11 +319,11 @@ export class ContactTicketsService implements OnModuleInit {
       await this.ticketRepository.save(ticket);
     }
 
-    return this.findById(id, tenantId, senderId, role);
+    return await this.findById(id, tenantId, senderId, role);
   }
 
   async close(id: number, tenantId: string, agentId: number): Promise<ContactTicketDetail> {
-    return this.updateStatus(id, tenantId, agentId, CLOSED_STATUS);
+    return await this.updateStatus(id, tenantId, agentId, CLOSED_STATUS);
   }
 
   async updateStatus(
@@ -337,7 +337,7 @@ export class ContactTicketsService implements OnModuleInit {
 
     const ticketType = ticket.ticketType ?? 'question';
     if (isTerminalContactStatus(ticketType, ticket.status)) {
-      return this.findById(id, tenantId, agentId, 'agent');
+      return await this.findById(id, tenantId, agentId, 'agent');
     }
 
     if (!isAllowedStatus(ticketType, status)) {
@@ -372,6 +372,6 @@ export class ContactTicketsService implements OnModuleInit {
       );
     }
 
-    return this.findById(id, tenantId, agentId, 'agent');
+    return await this.findById(id, tenantId, agentId, 'agent');
   }
 }

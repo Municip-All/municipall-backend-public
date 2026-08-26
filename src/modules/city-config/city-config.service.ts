@@ -473,6 +473,6 @@ export class CityConfigService implements OnModuleInit {
       });
     }
 
-    return this.cityRepository.findOneByOrFail({ id: cityId });
+    return await this.cityRepository.findOneByOrFail({ id: cityId });
   }
 }

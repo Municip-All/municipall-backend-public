@@ -341,11 +341,11 @@ export class AdminService {
 
     await this.cityRepository.update(id, updateData);
 
-    return this.cityRepository.findOneBy({ id });
+    return await this.cityRepository.findOneBy({ id });
   }
 
   async deleteCity(id: string) {
-    return this.cityRepository.delete(id);
+    return await this.cityRepository.delete(id);
   }
 
   async getCityStats() {
@@ -388,7 +388,7 @@ export class AdminService {
   }
 
   async getCityInvitations(cityId: string) {
-    return this.invitationRepository.find({
+    return await this.invitationRepository.find({
       where: { cityId, status: 'pending' },
       order: { createdAt: 'DESC' },
     });

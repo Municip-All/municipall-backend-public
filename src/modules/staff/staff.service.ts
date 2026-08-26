@@ -183,7 +183,7 @@ export class StaffService {
       resourceId: invitation.id,
     });
 
-    return this.authService.login(user, { backofficeOnly: true });
+    return await this.authService.login(user, { backofficeOnly: true });
   }
 
   async createMayor(data: {
