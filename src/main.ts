@@ -3,17 +3,21 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Logger, ValidationPipe, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const jsonBodyLimit = process.env.JSON_BODY_LIMIT ?? '15mb';
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const configService = app.get(ConfigService);
+
+  const jsonBodyLimit = configService.get<string>('JSON_BODY_LIMIT') ?? '15mb';
   app.useBodyParser('json', { limit: jsonBodyLimit });
   app.useBodyParser('urlencoded', { limit: jsonBodyLimit, extended: true });
 
-  const corsOriginsEnv = process.env.CORS_ORIGINS;
-  if (process.env.NODE_ENV === 'production' && !corsOriginsEnv) {
+  const corsOriginsEnv = configService.get<string>('CORS_ORIGINS');
+  const nodeEnv = configService.get<string>('NODE_ENV');
+  if (nodeEnv === 'production' && !corsOriginsEnv) {
     throw new InternalServerErrorException('CORS_ORIGINS env variable is required in production');
   }
   const allowedOrigins = (corsOriginsEnv || 'http://localhost:3000,http://localhost:3002')
@@ -26,11 +30,10 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Global prefixes and pipes
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (nodeEnv !== 'production') {
     const config = new DocumentBuilder()
       .setTitle("Municip'All API")
       .setDescription('Robust backend for civic-tech platform')
@@ -41,12 +44,12 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
-  const port = process.env.PORT || 3000;
-  const host = process.env.HOST || '0.0.0.0';
+  const port = configService.get<string>('PORT') || 3000;
+  const host = configService.get<string>('HOST') || '0.0.0.0';
   app.use(helmet());
   await app.listen(port, host);
   logger.log(`Application is running on: http://${host}:${port}/api/v1`);
-  if (process.env.NODE_ENV !== 'production') {
+  if (nodeEnv !== 'production') {
     logger.log(`Swagger documentation: http://${host}:${port}/docs`);
   }
 }
