@@ -2,9 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const jsonBodyLimit = process.env.JSON_BODY_LIMIT ?? '15mb';
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useBodyParser('json', { limit: jsonBodyLimit });
@@ -39,8 +40,8 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   const host = process.env.HOST || '0.0.0.0';
   await app.listen(port, host);
-  console.log(`Application is running on: http://${host}:${port}/api/v1`);
-  console.log(`Swagger documentation: http://${host}:${port}/docs`);
+  logger.log(`Application is running on: http://${host}:${port}/api/v1`);
+  logger.log(`Swagger documentation: http://${host}:${port}/docs`);
 }
 
 bootstrap().catch((err) => {
