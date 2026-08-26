@@ -18,11 +18,23 @@ export class UserService {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where('user.email = :email', { email })
+      .addSelect('user.password')
+      .getOne();
   }
 
   async findById(id: number): Promise<User | null> {
     return this.userRepository.findOne({ where: { id } });
+  }
+
+  async findByIdWithPassword(id: number): Promise<User | null> {
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id = :id', { id })
+      .addSelect('user.password')
+      .getOne();
   }
 
   async updateAvatar(userId: number, avatarUrl: string): Promise<User> {
@@ -50,7 +62,7 @@ export class UserService {
     userId: number,
     passwordData: { current: string; new: string; confirm: string },
   ): Promise<User> {
-    const user = await this.findById(userId);
+    const user = await this.findByIdWithPassword(userId);
     if (!user) throw new NotFoundException('User not found');
 
     if (passwordData.new !== passwordData.confirm) {
