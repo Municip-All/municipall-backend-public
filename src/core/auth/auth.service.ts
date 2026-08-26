@@ -60,7 +60,7 @@ export class AuthService {
 
   async signup(userData: Partial<User>) {
     const hashedPassword = await bcrypt.hash(userData.password ?? '', SALT_ROUNDS);
-    const user = await this.userRepository.CreateUser({
+    const user = await this.userRepository.createUser({
       ...userData,
       password: hashedPassword,
       role: 'Citoyen',

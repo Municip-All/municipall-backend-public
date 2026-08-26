@@ -8,7 +8,7 @@ export class UserRepository extends Repository<User> {
     super(User, datasource.createEntityManager());
   }
 
-  async CreateUser(userData: Partial<User>): Promise<User> {
+  async createUser(userData: Partial<User>): Promise<User> {
     const user = this.create(userData);
     return this.save(user);
   }
