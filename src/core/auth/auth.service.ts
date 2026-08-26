@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { UserService } from '../../modules/user/user.service';
 import { UserRepository } from '../../modules/user/user.repository';
 import { User } from '../../modules/user/user.entity';
+import { SignupDto } from './dto/signup.dto';
 
 const SALT_ROUNDS = 12;
 
@@ -58,12 +59,15 @@ export class AuthService {
     };
   }
 
-  async signup(userData: Partial<User>) {
+  async signup(userData: SignupDto) {
     const hashedPassword = await bcrypt.hash(userData.password ?? '', SALT_ROUNDS);
     const user = await this.userRepository.createUser({
-      ...userData,
+      name: userData.name,
+      surname: userData.surname,
+      email: userData.email,
       password: hashedPassword,
       role: 'Citoyen',
+      cityId: userData.cityId,
     });
     return this.login(user);
   }
