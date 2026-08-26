@@ -16,12 +16,8 @@ import {
 import { AdminService, CreateCityData } from './admin.service';
 import { DockerService } from './docker.service';
 import { DatabaseService } from './database.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Invitation } from './entities/invitation.entity';
-import { Repository } from 'typeorm';
 import { Public } from '../../core/decorators/public.decorator';
 import { PlatformAdminGuard } from '../../core/guards/platform-admin.guard';
-import { randomBytes } from 'crypto';
 import { StaffService } from '../staff/staff.service';
 import { CreateMayorDto } from '../staff/dto/create-staff-invitation.dto';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
@@ -30,6 +26,7 @@ import { RunDemoSeedDto } from './dto/run-demo-seed.dto';
 import { DatabaseQueryDto } from './dto/database-query.dto';
 import { CreateCityDto } from './dto/create-city.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
+import { UpdateCityDto } from '../city-config/dto/update-city.dto';
 
 @Public()
 @UseGuards(PlatformAdminGuard)
@@ -41,8 +38,6 @@ export class AdminController {
     private readonly databaseService: DatabaseService,
     private readonly staffService: StaffService,
     private readonly demoSeedService: DemoSeedService,
-    @InjectRepository(Invitation)
-    private invitationRepository: Repository<Invitation>,
   ) {}
 
   @Get('stats')
@@ -161,7 +156,7 @@ export class AdminController {
   }
 
   @Patch('cities/:id')
-  async updateCity(@Param('id') id: string, @Body() data: Partial<CreateCityDto>) {
+  async updateCity(@Param('id') id: string, @Body() data: UpdateCityDto) {
     const city = await this.adminService.updateCity(id, data as Partial<CreateCityData>);
     return {
       success: true,
@@ -210,17 +205,11 @@ export class AdminController {
 
   @Post('cities/:id/invitations')
   async createInvitation(@Param('id') cityId: string, @Body() body: CreateInvitationDto) {
-    const invitation = this.invitationRepository.create({
+    const invitation = await this.staffService.createInvitation(cityId, 0, {
       email: body.email,
-      name: body.name,
-      cityId,
-      role: body.role ?? 'assistant',
-      status: 'pending',
-      token: randomBytes(32).toString('hex'),
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      name: body.name ?? '',
+      role: (body.role as 'assistant' | 'agent') ?? 'assistant',
     });
-
-    await this.invitationRepository.save(invitation);
 
     return {
       success: true,
