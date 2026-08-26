@@ -64,10 +64,10 @@ export class Report {
   // dans TypeORM pour éviter les conflits de type.
 
   // Position (sans PostGIS – colonnes classiques)
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   lat?: number;
 
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   lon?: number;
 
   @CreateDateColumn({ name: 'created_at' })
