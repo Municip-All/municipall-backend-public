@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { mergeNotificationPreferences, NotificationPreferences } from './notification-preferences';
 
 const SALT_ROUNDS = 12;
@@ -30,7 +32,7 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async updateProfile(userId: number, profileData: Partial<User>): Promise<User> {
+  async updateProfile(userId: number, profileData: UpdateProfileDto): Promise<User> {
     const user = await this.findById(userId);
     if (!user) throw new NotFoundException('User not found');
 
@@ -121,7 +123,7 @@ export class UserService {
     };
   }
 
-  async create(userData: Partial<User>): Promise<User> {
+  async create(userData: CreateUserDto): Promise<User> {
     const newUser = this.userRepository.create(userData);
     return this.userRepository.save(newUser);
   }
