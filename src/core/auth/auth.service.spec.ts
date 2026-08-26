@@ -15,7 +15,10 @@ describe('AuthService', () => {
   let createUserMock: jest.Mock;
   let signAsyncMock: jest.Mock;
 
-  const mockUser: Partial<User> = {
+  const mockUser: Pick<
+    User,
+    'id' | 'email' | 'name' | 'surname' | 'role' | 'cityId' | 'avatar_url' | 'password'
+  > = {
     id: 1,
     email: 'test@example.com',
     name: 'John',
