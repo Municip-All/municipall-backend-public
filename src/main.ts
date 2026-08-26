@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe, InternalServerErrorException } from '@nestjs/common';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -13,7 +13,7 @@ async function bootstrap() {
 
   const corsOriginsEnv = process.env.CORS_ORIGINS;
   if (process.env.NODE_ENV === 'production' && !corsOriginsEnv) {
-    throw new Error('CORS_ORIGINS env variable is required in production');
+    throw new InternalServerErrorException('CORS_ORIGINS env variable is required in production');
   }
   const allowedOrigins = (corsOriginsEnv || '*').split(',').map((s) => s.trim());
   app.enableCors({
@@ -45,6 +45,7 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
-  console.error('Error during NestJS bootstrap', err);
+  const logger = new Logger('Bootstrap');
+  logger.error('Error during NestJS bootstrap', err);
   process.exit(1);
 });
