@@ -3,6 +3,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Logger, ValidationPipe, InternalServerErrorException } from '@nestjs/common';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -40,6 +41,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   const host = process.env.HOST || '0.0.0.0';
+  app.use(helmet());
   await app.listen(port, host);
   logger.log(`Application is running on: http://${host}:${port}/api/v1`);
   if (process.env.NODE_ENV !== 'production') {
