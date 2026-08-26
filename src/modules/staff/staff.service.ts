@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
@@ -291,12 +286,5 @@ export class StaffService {
       metadata: log.metadata,
       createdAt: log.createdAt.toISOString(),
     }));
-  }
-
-  assertMayorOrPlatform(role: string) {
-    const canonical = normalizeToCanonicalRole(role);
-    if (canonical !== CanonicalRole.MAYOR && canonical !== CanonicalRole.PLATFORM_ADMIN) {
-      throw new ForbiddenException('Réservé au maire.');
-    }
   }
 }

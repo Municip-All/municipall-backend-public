@@ -445,10 +445,6 @@ export class ReportsService {
     return saved;
   }
 
-  isInsideBoundary(_longitude: number, _latitude: number, _cityBoundary: any): boolean {
-    return true;
-  }
-
   async getClusteredReports(_bounds: any) {
     return await Promise.resolve([]);
   }
