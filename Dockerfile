@@ -16,14 +16,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy production dependencies and built assets
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-# Seed de démo (npm run seed:demo dans le conteneur)
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
+RUN npm prune --production
 
 # Standard production environment
 ENV NODE_ENV=production
