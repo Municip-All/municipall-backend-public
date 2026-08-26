@@ -13,6 +13,7 @@ import { Request } from 'express';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ReplyReportDto } from './dto/reply-report.dto';
+import { UpdateReportStatusDto } from './dto/update-status.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RequirePermissions } from '../../core/decorators/require-permissions.decorator';
 import { Permission } from '../../core/auth/permissions';
@@ -118,13 +119,13 @@ export class ReportsController {
   async updateStatus(
     @Req() req: ReportRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: string,
+    @Body() body: UpdateReportStatusDto,
   ) {
     const tenantId = req.tenantId ?? 'city-1';
     const userId = req.user?.sub;
     if (!userId) {
       throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
     }
-    return this.reportsService.updateStatus(id, status, tenantId, userId);
+    return this.reportsService.updateStatus(id, body.status, tenantId, userId);
   }
 }

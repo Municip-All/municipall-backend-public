@@ -9,7 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  BadRequestException,
   ParseIntPipe,
   NotFoundException,
   UseGuards,
@@ -29,6 +28,8 @@ import { UpdateAdminUserDto } from './dto/update-user.dto';
 import { DemoSeedService } from './demo-seed.service';
 import { RunDemoSeedDto } from './dto/run-demo-seed.dto';
 import { DatabaseQueryDto } from './dto/database-query.dto';
+import { CreateCityDto } from './dto/create-city.dto';
+import { CreateInvitationDto } from './dto/create-invitation.dto';
 
 @Public()
 @UseGuards(PlatformAdminGuard)
@@ -151,8 +152,8 @@ export class AdminController {
   }
 
   @Post('cities')
-  async createCity(@Body() data: CreateCityData) {
-    const city = await this.adminService.createCity(data);
+  async createCity(@Body() data: CreateCityDto) {
+    const city = await this.adminService.createCity(data as CreateCityData);
     return {
       success: true,
       data: city,
@@ -160,8 +161,8 @@ export class AdminController {
   }
 
   @Patch('cities/:id')
-  async updateCity(@Param('id') id: string, @Body() data: Partial<CreateCityData>) {
-    const city = await this.adminService.updateCity(id, data);
+  async updateCity(@Param('id') id: string, @Body() data: Partial<CreateCityDto>) {
+    const city = await this.adminService.updateCity(id, data as Partial<CreateCityData>);
     return {
       success: true,
       data: city,
@@ -208,15 +209,9 @@ export class AdminController {
   }
 
   @Post('cities/:id/invitations')
-  async createInvitation(
-    @Param('id') cityId: string,
-    @Body() body: { email: string; name?: string; role?: string },
-  ) {
-    const email = body.email;
-    if (!email) throw new BadRequestException('Email is required');
-
+  async createInvitation(@Param('id') cityId: string, @Body() body: CreateInvitationDto) {
     const invitation = this.invitationRepository.create({
-      email,
+      email: body.email,
       name: body.name,
       cityId,
       role: body.role ?? 'assistant',
