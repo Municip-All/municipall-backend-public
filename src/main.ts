@@ -16,7 +16,9 @@ async function bootstrap() {
   if (process.env.NODE_ENV === 'production' && !corsOriginsEnv) {
     throw new InternalServerErrorException('CORS_ORIGINS env variable is required in production');
   }
-  const allowedOrigins = (corsOriginsEnv || 'http://localhost:3000,http://localhost:3002').split(',').map((s) => s.trim());
+  const allowedOrigins = (corsOriginsEnv || 'http://localhost:3000,http://localhost:3002')
+    .split(',')
+    .map((s) => s.trim());
   app.enableCors({
     origin: allowedOrigins.length === 1 && allowedOrigins[0] === '*' ? '*' : allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
