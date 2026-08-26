@@ -12,6 +12,8 @@ import { FeedbackService } from '../feedback/feedback.service';
 
 import { Invitation } from './entities/invitation.entity';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
+import { UpdateCityDto } from '../city-config/dto/update-city.dto';
+import { CreateCityDto } from './dto/create-city.dto';
 
 const SALT_ROUNDS = 12;
 
@@ -46,38 +48,6 @@ function normalizeAssignableRole(role: string): CanonicalRole {
   if (n === 'agent') return CanonicalRole.AGENT;
   if (n === 'citizen' || n === 'citoyen') return CanonicalRole.CITIZEN;
   throw new BadRequestException(`Rôle non autorisé : ${role}`);
-}
-
-export type CityIntegrationType = 'widget' | 'mobile_app' | 'both';
-
-export interface CreateCityData {
-  id: string;
-  name: string;
-  primaryColor: string;
-  secondaryColor?: string;
-  useGradient?: boolean;
-  logoUrl?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  contactHelpText?: string;
-  dataRetentionPolicy?: string;
-  contractNumber?: string;
-  contractSignedAt?: string;
-  contractNotes?: string;
-  municipalityContactName?: string;
-  municipalityContactRole?: string;
-  municipalityContactEmail?: string;
-  municipalityContactPhone?: string;
-  assignedTechName?: string;
-  assignedTechEmail?: string;
-  salesRepName?: string;
-  salesRepEmail?: string;
-  integrationType?: CityIntegrationType;
-  features?: string[];
-  isTransportFeatureAllowed?: boolean;
-  isTransportFeatureEnabled?: boolean;
-  boundary?: unknown;
-  neighborhoods?: { id: string; name: string; points: [number, number][] }[];
 }
 
 @Injectable()
@@ -273,7 +243,7 @@ export class AdminService {
     }
   }
 
-  async createCity(data: CreateCityData) {
+  async createCity(data: CreateCityDto) {
     const {
       id,
       name,
@@ -345,17 +315,31 @@ export class AdminService {
     return savedCity;
   }
 
-  async updateCity(id: string, data: Partial<CreateCityData>) {
-    const { boundary, ...otherData } = data;
+  async updateCity(id: string, data: UpdateCityDto) {
+    const updateData: Record<string, unknown> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.features !== undefined) updateData.features = data.features;
+    if (data.dataRetentionPolicy !== undefined)
+      updateData.data_retention_policy = data.dataRetentionPolicy;
+    if (data.contactEmail !== undefined) updateData.contact_email = data.contactEmail;
+    if (data.contactPhone !== undefined) updateData.contact_phone = data.contactPhone;
+    if (data.contactHelpText !== undefined) updateData.contact_help_text = data.contactHelpText;
+    if (data.primaryColor !== undefined) updateData.primary_color = data.primaryColor;
+    if (data.secondaryColor !== undefined) updateData.secondary_color = data.secondaryColor;
+    if (data.useGradient !== undefined) updateData.use_gradient = data.useGradient;
+    if (data.logoUrl !== undefined) updateData.logo_url = data.logoUrl;
+    if (data.backgroundColorLight !== undefined)
+      updateData.background_color_light = data.backgroundColorLight;
+    if (data.backgroundColorDark !== undefined)
+      updateData.background_color_dark = data.backgroundColorDark;
+    if (data.neighborhoods !== undefined) updateData.neighborhoods = data.neighborhoods;
+    if (data.wasteConfig !== undefined) updateData.waste_config = data.wasteConfig;
+    if (data.isTransportFeatureEnabled !== undefined)
+      updateData.is_transport_feature_enabled = data.isTransportFeatureEnabled;
+    if (data.associations !== undefined) updateData.associations = data.associations;
+    if (data.publicProfile !== undefined) updateData.public_profile = data.publicProfile;
 
-    await this.cityRepository.update(id, otherData);
-
-    if (boundary) {
-      await this.cityRepository.query(
-        `UPDATE cities SET boundary = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-        [JSON.stringify(boundary), id],
-      );
-    }
+    await this.cityRepository.update(id, updateData);
 
     return this.cityRepository.findOneBy({ id });
   }

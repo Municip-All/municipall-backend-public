@@ -13,7 +13,7 @@ import {
   NotFoundException,
   UseGuards,
 } from '@nestjs/common';
-import { AdminService, CreateCityData } from './admin.service';
+import { AdminService } from './admin.service';
 import { DockerService } from './docker.service';
 import { DatabaseService } from './database.service';
 import { Public } from '../../core/decorators/public.decorator';
@@ -148,7 +148,7 @@ export class AdminController {
 
   @Post('cities')
   async createCity(@Body() data: CreateCityDto) {
-    const city = await this.adminService.createCity(data as CreateCityData);
+    const city = await this.adminService.createCity(data);
     return {
       success: true,
       data: city,
@@ -157,7 +157,7 @@ export class AdminController {
 
   @Patch('cities/:id')
   async updateCity(@Param('id') id: string, @Body() data: UpdateCityDto) {
-    const city = await this.adminService.updateCity(id, data as Partial<CreateCityData>);
+    const city = await this.adminService.updateCity(id, data);
     return {
       success: true,
       data: city,
