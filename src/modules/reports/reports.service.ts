@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import type { ParsedQs } from 'qs';
 import { Report } from './entities/report.entity';
 import { ReportMessage, ReportMessageRole } from './entities/report-message.entity';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -182,7 +183,7 @@ export class ReportsService {
   }
 
   async findAll(tenantId: string): Promise<Report[]> {
-    return this.reportRepository.find({
+    return await this.reportRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
     });
@@ -436,7 +437,7 @@ export class ReportsService {
     return saved;
   }
 
-  async getClusteredReports(_bounds: any) {
+  async getClusteredReports(_bounds: ParsedQs) {
     return await Promise.resolve([]);
   }
 }
