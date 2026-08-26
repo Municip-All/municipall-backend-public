@@ -147,13 +147,6 @@ export class ContactTicketsService implements OnModuleInit {
     });
   }
 
-  private async getLastMessage(ticketId: number) {
-    return this.messageRepository.findOne({
-      where: { ticketId },
-      order: { createdAt: 'DESC' },
-    });
-  }
-
   private toListItem(
     ticket: ContactTicket,
     last?: ContactTicketMessage | null,
@@ -212,7 +205,7 @@ export class ContactTicketsService implements OnModuleInit {
     });
 
     return Promise.all(
-      tickets.map(async (ticket) => this.toListItem(ticket, await this.getLastMessage(ticket.id))),
+      tickets.map(async (ticket) => this.toListItem(ticket, await this.findLastMessage(ticket.id))),
     );
   }
 
@@ -224,7 +217,7 @@ export class ContactTicketsService implements OnModuleInit {
     });
 
     return Promise.all(
-      tickets.map(async (ticket) => this.toListItem(ticket, await this.getLastMessage(ticket.id))),
+      tickets.map(async (ticket) => this.toListItem(ticket, await this.findLastMessage(ticket.id))),
     );
   }
 

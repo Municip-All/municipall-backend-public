@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiEngineService } from './ai-engine.service';
 import { AiEnrichmentProcessor, AI_ENRICHMENT_QUEUE } from './ai-enrichment.processor';
 
@@ -15,7 +14,6 @@ import { AiEnrichmentProcessor, AI_ENRICHMENT_QUEUE } from './ai-enrichment.proc
         removeOnFail: { age: 24 * 3600 },
       },
     }),
-    TypeOrmModule.forFeature([]),
   ],
   providers: [AiEngineService, AiEnrichmentProcessor],
   exports: [AiEngineService],
