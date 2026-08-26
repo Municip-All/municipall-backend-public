@@ -27,7 +27,7 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   avatar_url?: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', select: false })
   password!: string;
 
   @Column({ type: 'varchar', nullable: true })
