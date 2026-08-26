@@ -1,7 +1,4 @@
-version: '3.9'
-
 services:
-  # Database with PostGIS extension for spatial queries
   postgres:
     image: postgis/postgis:15-3.3
     restart: unless-stopped
@@ -20,7 +17,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for BullMQ queues and caching
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -30,13 +26,12 @@ services:
     volumes:
       - redis_data:/data
 
-  # Optional: UI to manage the database
   pgadmin:
     image: dpage/pgadmin4:8
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@municipall.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@municipall.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
     ports:
       - '8080:80'
     depends_on:
