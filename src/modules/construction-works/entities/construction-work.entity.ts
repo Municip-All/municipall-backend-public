@@ -11,8 +11,8 @@ export class ConstructionWork {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
-  tenantId!: string; // city ID
+  @Column({ name: 'tenantId' })
+  tenantId!: string;
 
   @Column()
   title!: string;
@@ -20,8 +20,8 @@ export class ConstructionWork {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column()
-  locationName!: string; // e.g. "Avenue de la République"
+  @Column({ name: 'locationName' })
+  locationName!: string;
 
   @Column({
     type: 'geometry',
@@ -29,19 +29,19 @@ export class ConstructionWork {
     srid: 4326,
     nullable: true,
   })
-  coordinates?: any;
+  coordinates?: unknown;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp', name: 'startDate' })
   startDate!: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp', name: 'endDate' })
   endDate!: Date;
 
   @Column({ default: 'Programmé' })
   status!: string; // 'Programmé', 'En cours', 'Terminé', 'Annulé'
 
-  @Column({ nullable: true })
-  impactType!: string; // 'Rue barrée', 'Circulation alternée', 'Trottoir réduit', etc.
+  @Column({ name: 'impactType', nullable: true })
+  impactType!: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
