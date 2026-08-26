@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { AiEngineService, AiEnrichmentPayload } from './ai-engine.service';
@@ -35,7 +35,7 @@ export class AiEnrichmentProcessor extends WorkerHost {
     });
 
     if (!aiResult) {
-      throw new Error(`AI enrichment returned null for report ${report_id}`);
+      throw new InternalServerErrorException(`AI enrichment returned null for report ${report_id}`);
     }
 
     try {
