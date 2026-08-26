@@ -189,7 +189,8 @@ export class ReportsService {
   }
 
   private async toListItem(report: Report): Promise<ReportListItem> {
-    const { lat, lon } = await this.extractCoordinates(report.id);
+    const lat = report.lat ?? 0;
+    const lon = report.lon ?? 0;
     const last = await this.messageRepository.findOne({
       where: { reportId: report.id },
       order: { createdAt: 'DESC' },
@@ -221,17 +222,6 @@ export class ReportsService {
       take: 50,
     });
     return Promise.all(reports.map((report) => this.toListItem(report)));
-  }
-
-  private async extractCoordinates(reportId: number): Promise<{ lat: number; lon: number }> {
-    const report = await this.reportRepository.findOne({
-      where: { id: reportId },
-      select: ['lat', 'lon'],
-    });
-    return {
-      lat: report?.lat ?? 0,
-      lon: report?.lon ?? 0,
-    };
   }
 
   private async resolveSenderDisplayName(userId: number, role: ReportMessageRole): Promise<string> {
@@ -284,7 +274,8 @@ export class ReportsService {
       throw new ForbiddenException('Accès non autorisé à ce signalement');
     }
 
-    const { lat, lon } = await this.extractCoordinates(id);
+    const lat = report.lat ?? 0;
+    const lon = report.lon ?? 0;
     const rawMessages = await this.messageRepository.find({
       where: { reportId: id },
       order: { createdAt: 'ASC' },
