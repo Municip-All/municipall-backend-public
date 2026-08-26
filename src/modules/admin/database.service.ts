@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 interface TableSchemaRow {
@@ -42,7 +47,7 @@ export class DatabaseService {
     try {
       // Basic protection against SQL injection on table name
       if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
-        throw new Error('Invalid table name');
+        throw new BadRequestException('Invalid table name');
       }
 
       // Fetch columns
