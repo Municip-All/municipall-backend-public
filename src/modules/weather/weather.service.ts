@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 interface OpenWeatherResponse {
@@ -24,10 +29,7 @@ export class WeatherService {
 
   async getWeather(lat: number, lon: number) {
     if (!this.apiKey) {
-      return {
-        error: 'Weather API key not configured',
-        status: 500,
-      };
+      throw new ServiceUnavailableException('Weather API key not configured');
     }
 
     try {
@@ -48,10 +50,7 @@ export class WeatherService {
       };
     } catch (error) {
       this.logger.error('WeatherService Error:', error);
-      return {
-        error: 'Failed to fetch weather data',
-        status: 500,
-      };
+      throw new BadGatewayException('Failed to fetch weather data');
     }
   }
 }
