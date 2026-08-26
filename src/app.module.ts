@@ -32,7 +32,23 @@ import { TenantGuard } from './core/guards/tenant.guard';
     DatabaseModule,
     AuditModule,
     StaffModule,
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: (config: Record<string, unknown>) => {
+        const required = [
+          'JWT_SECRET',
+          'DATABASE_HOST',
+          'DATABASE_PASSWORD',
+          'DATABASE_NAME',
+          'REDIS_HOST',
+        ];
+        const missing = required.filter((key) => !config[key]);
+        if (missing.length > 0) {
+          throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+        }
+        return config;
+      },
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     BullModule.forRoot({
       connection: {
