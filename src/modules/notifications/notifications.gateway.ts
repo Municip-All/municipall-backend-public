@@ -12,13 +12,15 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Logger } from '@nestjs/common';
 
-const wsAllowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3002')
-  .split(',')
-  .map((s) => s.trim());
+function getWsAllowedOrigins(): string[] | '*' {
+  const raw = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3002';
+  const origins = raw.split(',').map((s) => s.trim());
+  return origins.length === 1 && origins[0] === '*' ? '*' : origins;
+}
 
 @WebSocketGateway({
   cors: {
-    origin: wsAllowedOrigins.length === 1 && wsAllowedOrigins[0] === '*' ? '*' : wsAllowedOrigins,
+    origin: getWsAllowedOrigins(),
     credentials: true,
   },
 })
