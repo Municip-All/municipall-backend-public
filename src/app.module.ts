@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { InternalServerErrorException, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
@@ -44,7 +44,9 @@ import { TenantGuard } from './core/guards/tenant.guard';
         ];
         const missing = required.filter((key) => !config[key]);
         if (missing.length > 0) {
-          throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+          throw new InternalServerErrorException(
+            `Missing required environment variables: ${missing.join(', ')}`,
+          );
         }
         return config;
       },
@@ -64,7 +66,7 @@ import { TenantGuard } from './core/guards/tenant.guard';
       password:
         process.env.DATABASE_PASSWORD ??
         (() => {
-          throw new Error('DATABASE_PASSWORD env variable is required');
+          throw new InternalServerErrorException('DATABASE_PASSWORD env variable is required');
         })(),
       database: process.env.DATABASE_NAME || 'municipall',
       autoLoadEntities: true,
