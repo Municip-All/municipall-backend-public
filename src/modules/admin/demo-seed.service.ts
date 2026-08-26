@@ -4,6 +4,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
@@ -22,11 +23,16 @@ export type DemoSeedResult = {
 export class DemoSeedService {
   private readonly logger = new Logger(DemoSeedService.name);
 
+  constructor(private readonly configService: ConfigService) {}
+
   isEnabled(): boolean {
-    if (process.env.DEMO_SEED_ENABLED === 'false') {
+    if (this.configService.get<string>('DEMO_SEED_ENABLED') === 'false') {
       return false;
     }
-    if (process.env.NODE_ENV === 'production' && process.env.DEMO_SEED_ENABLED !== 'true') {
+    if (
+      this.configService.get<string>('NODE_ENV') === 'production' &&
+      this.configService.get<string>('DEMO_SEED_ENABLED') !== 'true'
+    ) {
       return false;
     }
     return true;

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
 /**
@@ -10,7 +11,10 @@ import { DataSource } from 'typeorm';
 export class DatabaseSchemaService implements OnApplicationBootstrap {
   private readonly logger = new Logger(DatabaseSchemaService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly configService: ConfigService,
+  ) {}
 
   async onApplicationBootstrap() {
     if (!this.shouldEnsureSchema()) {
@@ -29,13 +33,13 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
   }
 
   private shouldEnsureSchema(): boolean {
-    if (process.env.DB_ENSURE_SCHEMA === 'false') {
+    if (this.configService.get<string>('DB_ENSURE_SCHEMA') === 'false') {
       return false;
     }
-    if (process.env.NODE_ENV === 'production') {
+    if (this.configService.get<string>('NODE_ENV') === 'production') {
       return true;
     }
-    return process.env.DB_ENSURE_SCHEMA === 'true';
+    return this.configService.get<string>('DB_ENSURE_SCHEMA') === 'true';
   }
 
   private async ensurePostgis() {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -33,6 +34,8 @@ interface DockerStatsOutput {
 @Injectable()
 export class DockerService {
   private readonly logger = new Logger(DockerService.name);
+
+  constructor(private readonly configService: ConfigService) {}
 
   async getContainers(): Promise<DockerContainer[]> {
     try {
@@ -92,7 +95,7 @@ export class DockerService {
       });
     } catch (error) {
       this.logger.error('Docker Monitoring Error:', error);
-      if (process.env.NODE_ENV !== 'production') {
+      if (this.configService.get<string>('NODE_ENV') !== 'production') {
         return [
           {
             id: '1',
