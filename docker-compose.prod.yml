@@ -20,8 +20,6 @@ services:
       IDFM_API_KEY: ${IDFM_API_KEY}
     ports:
       - '3000:3000'
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - default
       - proxy-bridge
@@ -59,7 +57,7 @@ services:
       - proxy-bridge
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@municipall.app}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD is required}
     ports:
       - '5050:80'
     depends_on:
