@@ -421,7 +421,7 @@ export class CityConfigService implements OnModuleInit {
       throw new NotFoundException('Ville introuvable');
     }
 
-    const patch: Partial<City> = {};
+    const patch: Record<string, unknown> = {};
     if (typeof data.name === 'string') patch.name = data.name;
     if (Array.isArray(data.features)) patch.features = data.features as string[];
     if (typeof data.dataRetentionPolicy === 'string') {
