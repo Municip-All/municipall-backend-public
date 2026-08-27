@@ -7,6 +7,7 @@ import {
   Req,
   ParseIntPipe,
   DefaultValuePipe,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { RequirePermissions } from '../../core/decorators/require-permissions.de
 import { Permission } from '../../core/auth/permissions';
 import { Public } from '../../core/decorators/public.decorator';
 import { AcceptInvitationDto, CreateStaffInvitationDto } from './dto/create-staff-invitation.dto';
+import { PaginationDto } from '../../shared/dtos/pagination.dto';
 
 interface StaffRequest extends Request {
   user?: { sub: number; role: string; cityId?: string };
@@ -41,7 +43,7 @@ export class StaffController {
   async createInvitation(@Req() req: StaffRequest, @Body() dto: CreateStaffInvitationDto) {
     const tenantId = req.tenantId ?? req.user?.cityId ?? '';
     const userId = req.user?.sub;
-    if (!userId) throw new Error('User required');
+    if (!userId) throw new UnauthorizedException('User required');
     return this.staffService.createInvitation(tenantId, userId, dto);
   }
 
@@ -73,8 +75,9 @@ export class StaffController {
   @Get('team/activity')
   @RequirePermissions(Permission.TEAM_KPIS)
   @ApiOperation({ summary: "Journal d'activité de l'équipe (maire)" })
-  async teamActivity(@Req() req: StaffRequest, @Query('limit') limit?: string) {
+  async teamActivity(@Req() req: StaffRequest, @Query() pagination: PaginationDto) {
     const tenantId = req.tenantId ?? req.user?.cityId ?? '';
-    return this.staffService.getTeamActivity(tenantId, limit ? parseInt(limit, 10) : 50);
+    const limit = pagination.limit ?? 50;
+    return this.staffService.getTeamActivity(tenantId, limit);
   }
 }

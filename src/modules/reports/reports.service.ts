@@ -2,10 +2,14 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import type { ParsedQs } from 'qs';
 import { Report } from './entities/report.entity';
 import { ReportMessage, ReportMessageRole } from './entities/report-message.entity';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -15,6 +19,8 @@ import { resolveReportSenderRole } from '../../core/auth/roles';
 import { AuditService } from '../audit/audit.service';
 import { FeedbackService, UserRatingView } from '../feedback/feedback.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AiEngineService } from '../ai-engine/ai-engine.service';
+import { AI_ENRICHMENT_QUEUE } from '../ai-engine/ai-enrichment.processor';
 
 export interface ReportMessageView {
   id: number;
@@ -32,16 +38,6 @@ export interface ReportCitizenView {
   email: string;
   cityId?: string;
   cityName?: string;
-}
-
-interface CoordinateRow {
-  lat: string | number;
-  lon: string | number;
-}
-
-function isCoordinateRow(value: unknown): value is CoordinateRow {
-  if (typeof value !== 'object' || value === null) return false;
-  return 'lat' in value && 'lon' in value;
 }
 
 export interface ReportListItem {
@@ -81,6 +77,8 @@ export interface ReportDetailView {
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     @InjectRepository(Report)
     private readonly reportRepository: Repository<Report>,
@@ -93,6 +91,8 @@ export class ReportsService {
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
     private readonly feedbackService: FeedbackService,
+    private readonly aiEngineService: AiEngineService,
+    @InjectQueue(AI_ENRICHMENT_QUEUE) private readonly aiQueue: Queue,
   ) {}
 
   async create(tenantId: string, data: CreateReportDto, actorUserId?: number): Promise<Report> {
@@ -129,7 +129,8 @@ export class ReportsService {
         userId: data.userId,
         status: data.status ?? 'En attente',
         isResident,
-        location: () => `ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)`,
+        lat,
+        lon,
       })
       .returning('id')
       .execute();
@@ -141,6 +142,23 @@ export class ReportsService {
     }
 
     const savedReport = await this.reportRepository.findOneByOrFail({ id });
+
+    // ─── Enrichissement IA (asynchrone via BullMQ) ───
+    try {
+      await this.aiQueue.add('enrich', {
+        report_id: savedReport.id,
+        tenant_id: tenantId,
+        user_id: data.userId,
+        content: data.description ?? '',
+        lat,
+        lon,
+      });
+      this.logger.log(`AI enrichment queued for report ${savedReport.id}`);
+    } catch (queueErr) {
+      this.logger.error(
+        `AI queue dispatch failed for report ${savedReport.id}: ${(queueErr as Error).message}`,
+      );
+    }
 
     if (actorUserId) {
       await this.auditService.log({
@@ -157,7 +175,7 @@ export class ReportsService {
       try {
         await this.reportRepository.manager.increment('User', { id: data.userId }, 'points', 10);
       } catch (error) {
-        console.error('Failed to award points to user:', error);
+        this.logger.error('Failed to award points to user:', error);
       }
     }
 
@@ -165,14 +183,15 @@ export class ReportsService {
   }
 
   async findAll(tenantId: string): Promise<Report[]> {
-    return this.reportRepository.find({
+    return await this.reportRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
     });
   }
 
   private async toListItem(report: Report): Promise<ReportListItem> {
-    const { lat, lon } = await this.extractCoordinates(report.id);
+    const lat = report.lat ?? 0;
+    const lon = report.lon ?? 0;
     const last = await this.messageRepository.findOne({
       where: { reportId: report.id },
       order: { createdAt: 'DESC' },
@@ -204,18 +223,6 @@ export class ReportsService {
       take: 50,
     });
     return Promise.all(reports.map((report) => this.toListItem(report)));
-  }
-
-  private async extractCoordinates(reportId: number): Promise<{ lat: number; lon: number }> {
-    const raw: unknown = await this.reportRepository.query(
-      `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon FROM reports WHERE id = $1`,
-      [reportId],
-    );
-    const row = Array.isArray(raw) && isCoordinateRow(raw[0]) ? raw[0] : undefined;
-    return {
-      lat: row ? Number(row.lat) : 0,
-      lon: row ? Number(row.lon) : 0,
-    };
   }
 
   private async resolveSenderDisplayName(userId: number, role: ReportMessageRole): Promise<string> {
@@ -268,7 +275,8 @@ export class ReportsService {
       throw new ForbiddenException('Accès non autorisé à ce signalement');
     }
 
-    const { lat, lon } = await this.extractCoordinates(id);
+    const lat = report.lat ?? 0;
+    const lon = report.lon ?? 0;
     const rawMessages = await this.messageRepository.find({
       where: { reportId: id },
       order: { createdAt: 'ASC' },
@@ -429,11 +437,7 @@ export class ReportsService {
     return saved;
   }
 
-  isInsideBoundary(_longitude: number, _latitude: number, _cityBoundary: any): boolean {
-    return true;
-  }
-
-  async getClusteredReports(_bounds: any) {
+  async getClusteredReports(_bounds: ParsedQs) {
     return await Promise.resolve([]);
   }
 }

@@ -1,14 +1,21 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import * as os from 'os';
 import { CanonicalRole } from '../../core/auth/permissions';
 import { AuditService } from '../audit/audit.service';
+import { FeedbackService } from '../feedback/feedback.service';
 
 import { Invitation } from './entities/invitation.entity';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
+import { UpdateCityDto } from '../city-config/dto/update-city.dto';
+import { CreateCityDto } from './dto/create-city.dto';
+
+const SALT_ROUNDS = 12;
 
 const USER_PUBLIC_FIELDS = [
   'id',
@@ -43,40 +50,10 @@ function normalizeAssignableRole(role: string): CanonicalRole {
   throw new BadRequestException(`Rôle non autorisé : ${role}`);
 }
 
-export type CityIntegrationType = 'widget' | 'mobile_app' | 'both';
-
-export interface CreateCityData {
-  id: string;
-  name: string;
-  primaryColor: string;
-  secondaryColor?: string;
-  useGradient?: boolean;
-  logoUrl?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  contactHelpText?: string;
-  dataRetentionPolicy?: string;
-  contractNumber?: string;
-  contractSignedAt?: string;
-  contractNotes?: string;
-  municipalityContactName?: string;
-  municipalityContactRole?: string;
-  municipalityContactEmail?: string;
-  municipalityContactPhone?: string;
-  assignedTechName?: string;
-  assignedTechEmail?: string;
-  salesRepName?: string;
-  salesRepEmail?: string;
-  integrationType?: CityIntegrationType;
-  features?: string[];
-  isTransportFeatureAllowed?: boolean;
-  isTransportFeatureEnabled?: boolean;
-  boundary?: unknown;
-  neighborhoods?: { id: string; name: string; points: [number, number][] }[];
-}
-
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -85,6 +62,7 @@ export class AdminService {
     @InjectRepository(Invitation)
     private invitationRepository: Repository<Invitation>,
     private readonly auditService: AuditService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   async getBusinessStats() {
@@ -93,12 +71,23 @@ export class AdminService {
     const citizens = await this.userRepository.count({ where: { role: 'citizen' } });
     const cities = await this.cityRepository.count();
 
+    let satisfaction = 0;
+    try {
+      const allFeedbacks = await this.feedbackService.listForMayor('', 10000);
+      if (allFeedbacks.length > 0) {
+        const avg = allFeedbacks.reduce((sum, f) => sum + f.stars, 0) / allFeedbacks.length;
+        satisfaction = Math.round((avg / 5) * 100) / 100;
+      }
+    } catch {
+      satisfaction = 0;
+    }
+
     return {
       cities,
       users: totalUsers,
       agents,
       citizens,
-      satisfaction: 4.8,
+      satisfaction,
     };
   }
 
@@ -172,7 +161,7 @@ export class AdminService {
       user.cityId = cityId;
     }
     if (dto.password) {
-      user.password = dto.password;
+      user.password = await bcrypt.hash(dto.password, SALT_ROUNDS);
     }
 
     const staffRoles = [CanonicalRole.MAYOR, CanonicalRole.ASSISTANT, CanonicalRole.AGENT];
@@ -231,7 +220,7 @@ export class AdminService {
         order: { name: 'ASC' },
       });
     } catch (error) {
-      console.error('[DATABASE ERROR] Failed to fetch cities:', error);
+      this.logger.error('[DATABASE ERROR] Failed to fetch cities:', error);
       // Fallback: try to fetch without geometry/json fields if they are corrupted
       try {
         return await this.cityRepository.find({
@@ -248,13 +237,13 @@ export class AdminService {
           order: { name: 'ASC' },
         });
       } catch (innerError) {
-        console.error('[DATABASE ERROR] Fatal city fetch error:', innerError);
+        this.logger.error('[DATABASE ERROR] Fatal city fetch error:', innerError);
         return [];
       }
     }
   }
 
-  async createCity(data: CreateCityData) {
+  async createCity(data: CreateCityDto) {
     const {
       id,
       name,
@@ -326,23 +315,37 @@ export class AdminService {
     return savedCity;
   }
 
-  async updateCity(id: string, data: Partial<CreateCityData>) {
-    const { boundary, ...otherData } = data;
+  async updateCity(id: string, data: UpdateCityDto) {
+    const updateData: Record<string, unknown> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.features !== undefined) updateData.features = data.features;
+    if (data.dataRetentionPolicy !== undefined)
+      updateData.data_retention_policy = data.dataRetentionPolicy;
+    if (data.contactEmail !== undefined) updateData.contact_email = data.contactEmail;
+    if (data.contactPhone !== undefined) updateData.contact_phone = data.contactPhone;
+    if (data.contactHelpText !== undefined) updateData.contact_help_text = data.contactHelpText;
+    if (data.primaryColor !== undefined) updateData.primary_color = data.primaryColor;
+    if (data.secondaryColor !== undefined) updateData.secondary_color = data.secondaryColor;
+    if (data.useGradient !== undefined) updateData.use_gradient = data.useGradient;
+    if (data.logoUrl !== undefined) updateData.logo_url = data.logoUrl;
+    if (data.backgroundColorLight !== undefined)
+      updateData.background_color_light = data.backgroundColorLight;
+    if (data.backgroundColorDark !== undefined)
+      updateData.background_color_dark = data.backgroundColorDark;
+    if (data.neighborhoods !== undefined) updateData.neighborhoods = data.neighborhoods;
+    if (data.wasteConfig !== undefined) updateData.waste_config = data.wasteConfig;
+    if (data.isTransportFeatureEnabled !== undefined)
+      updateData.is_transport_feature_enabled = data.isTransportFeatureEnabled;
+    if (data.associations !== undefined) updateData.associations = data.associations;
+    if (data.publicProfile !== undefined) updateData.public_profile = data.publicProfile;
 
-    await this.cityRepository.update(id, otherData);
+    await this.cityRepository.update(id, updateData);
 
-    if (boundary) {
-      await this.cityRepository.query(
-        `UPDATE cities SET boundary = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-        [JSON.stringify(boundary), id],
-      );
-    }
-
-    return this.cityRepository.findOneBy({ id });
+    return await this.cityRepository.findOneBy({ id });
   }
 
   async deleteCity(id: string) {
-    return this.cityRepository.delete(id);
+    return await this.cityRepository.delete(id);
   }
 
   async getCityStats() {
@@ -385,7 +388,7 @@ export class AdminService {
   }
 
   async getCityInvitations(cityId: string) {
-    return this.invitationRepository.find({
+    return await this.invitationRepository.find({
       where: { cityId, status: 'pending' },
       order: { createdAt: 'DESC' },
     });
@@ -405,7 +408,7 @@ export class AdminService {
       email: invitation.email,
       role: invitation.role ?? 'assistant',
       cityId: invitation.cityId,
-      password: 'password123',
+      password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), SALT_ROUNDS),
     });
     await this.userRepository.save(dummyAgent);
 

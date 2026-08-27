@@ -103,7 +103,7 @@ export class City {
     srid: 4326,
     nullable: true,
   })
-  boundary?: any;
+  boundary?: object;
 
   @Column('simple-json', { nullable: true })
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];

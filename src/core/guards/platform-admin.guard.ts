@@ -1,13 +1,12 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-/**
- * Protège les routes /admin (webadmin Municipall).
- * Clé serveur via PLATFORM_ADMIN_KEY — jamais exposée au backoffice mairie.
- */
 @Injectable()
 export class PlatformAdminGuard implements CanActivate {
+  constructor(private readonly configService: ConfigService) {}
+
   canActivate(context: ExecutionContext): boolean {
-    const expected = process.env.PLATFORM_ADMIN_KEY;
+    const expected = this.configService.get<string>('PLATFORM_ADMIN_KEY');
     if (!expected) {
       throw new ForbiddenException(
         'Accès plateforme non configuré (PLATFORM_ADMIN_KEY manquante).',

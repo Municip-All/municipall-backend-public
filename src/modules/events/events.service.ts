@@ -13,7 +13,7 @@ export class EventsService {
   ) {}
 
   async findAll(cityId: string): Promise<Event[]> {
-    return this.repository.find({
+    return await this.repository.find({
       where: { cityId },
       order: { startDate: 'ASC' },
     });
@@ -34,7 +34,7 @@ export class EventsService {
       startDate: new Date(data.startDate),
       endDate: new Date(data.endDate),
     });
-    return this.repository.save(event);
+    return await this.repository.save(event);
   }
 
   async update(id: number, cityId: string, data: UpdateEventDto): Promise<Event> {
@@ -46,7 +46,7 @@ export class EventsService {
     if (endDate) event.endDate = new Date(endDate);
 
     Object.assign(event, rest);
-    return this.repository.save(event);
+    return await this.repository.save(event);
   }
 
   async remove(id: number, cityId: string): Promise<void> {

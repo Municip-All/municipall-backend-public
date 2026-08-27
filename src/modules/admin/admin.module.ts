@@ -10,9 +10,15 @@ import { City } from '../city-config/entities/city.entity';
 import { Invitation } from './entities/invitation.entity';
 import { StaffModule } from '../staff/staff.module';
 import { AuditModule } from '../audit/audit.module';
+import { FeedbackModule } from '../feedback/feedback.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, City, Invitation]), StaffModule, AuditModule],
+  imports: [
+    TypeOrmModule.forFeature([User, City, Invitation]),
+    StaffModule,
+    AuditModule,
+    FeedbackModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService, DockerService, DatabaseService, DemoSeedService],
 })

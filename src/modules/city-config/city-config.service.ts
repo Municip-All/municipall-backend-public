@@ -1,17 +1,21 @@
-import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
-import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
-import { ContactTicketMessage } from '../contact-messages/entities/contact-ticket-message.entity';
 import { City } from './entities/city.entity';
 import { AuditService } from '../audit/audit.service';
-import { isTerminalContactStatus } from '../contact-messages/contact-ticket-status';
 import { FeedbackService } from '../feedback/feedback.service';
+import { ContactTicketsService } from '../contact-messages/contact-tickets.service';
+import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
-const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 
 export interface CityContactConfig {
   email?: string;
@@ -120,6 +124,8 @@ function resolveOfficialName(city: City): string {
 
 @Injectable()
 export class CityConfigService implements OnModuleInit {
+  private readonly logger = new Logger(CityConfigService.name);
+
   constructor(
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
@@ -127,18 +133,10 @@ export class CityConfigService implements OnModuleInit {
     private readonly reportRepository: Repository<Report>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(ContactTicket)
-    private readonly contactTicketRepository: Repository<ContactTicket>,
-    @InjectRepository(ContactTicketMessage)
-    private readonly contactTicketMessageRepository: Repository<ContactTicketMessage>,
+    private readonly contactTicketsService: ContactTicketsService,
     private readonly auditService: AuditService,
     private readonly feedbackService: FeedbackService,
   ) {}
-
-  private isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
-    const text = `${ticket.subject} ${lastBody ?? ''}`;
-    return URGENT_KEYWORDS.test(text);
-  }
 
   private buildAlerts(
     pendingReports: Report[],
@@ -164,7 +162,7 @@ export class CityConfigService implements OnModuleInit {
       return {
         id: `contact-${ticket.id}`,
         type: 'contact',
-        severity: this.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
+        severity: this.contactTicketsService.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
         title: isSuggestion ? `Suggestion — ${ticket.subject}` : `Question — ${ticket.subject}`,
         subtitle:
           lastBody.slice(0, 120) || (isSuggestion ? 'Nouvelle suggestion' : 'Nouvelle question'),
@@ -196,7 +194,7 @@ export class CityConfigService implements OnModuleInit {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(
+      this.logger.warn(
         'CityConfigService: Could not seed default city. The "cities" table might not exist yet.',
         errorMessage,
       );
@@ -329,21 +327,13 @@ export class CityConfigService implements OnModuleInit {
       take: 30,
     });
 
-    const allTickets = await this.contactTicketRepository.find({
-      where: { tenantId: cityId },
-      order: { updatedAt: 'DESC' },
-      take: 100,
-    });
-    const pendingTickets = allTickets.filter(
-      (t) => !isTerminalContactStatus(t.ticketType ?? 'question', t.status),
-    );
+    const allTickets = await this.contactTicketsService.findPendingForTenant(cityId);
+
+    const pendingTickets = allTickets;
 
     const lastBodies = new Map<number, string>();
     for (const ticket of pendingTickets) {
-      const last = await this.contactTicketMessageRepository.findOne({
-        where: { ticketId: ticket.id },
-        order: { createdAt: 'DESC' },
-      });
+      const last = await this.contactTicketsService.findLastMessage(ticket.id);
       if (last) lastBodies.set(ticket.id, last.body);
     }
 
@@ -365,6 +355,43 @@ export class CityConfigService implements OnModuleInit {
 
     const satisfactionSummary = await this.feedbackService.getSatisfactionSummary(cityId);
 
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const currentMonthReports = await this.reportRepository.count({
+      where: { tenantId: cityId, createdAt: LessThanOrEqual(now) },
+    });
+
+    const previousMonthReports = await this.reportRepository.count({
+      where: { tenantId: cityId, createdAt: LessThanOrEqual(previousMonthStart) },
+    });
+
+    let reportsTrend = 0;
+    if (previousMonthReports > 0) {
+      reportsTrend = Math.round(
+        ((currentMonthReports - previousMonthReports) / previousMonthReports) * 100,
+      );
+    }
+
+    const currentMonthSuggestions = await this.contactTicketsService.findPendingForTenant(cityId);
+    const currentSuggCount = currentMonthSuggestions.filter(
+      (t) => t.ticketType === 'suggestion' && t.createdAt >= currentMonthStart,
+    ).length;
+    const previousSuggCount = currentMonthSuggestions.filter(
+      (t) =>
+        t.ticketType === 'suggestion' &&
+        t.createdAt >= previousMonthStart &&
+        t.createdAt < currentMonthStart,
+    ).length;
+
+    let suggestionsTrend = 0;
+    if (previousSuggCount > 0) {
+      suggestionsTrend = Math.round(
+        ((currentSuggCount - previousSuggCount) / previousSuggCount) * 100,
+      );
+    }
+
     return {
       satisfaction: satisfactionSummary.satisfaction,
       satisfactionTrend: satisfactionSummary.satisfactionTrend,
@@ -375,9 +402,9 @@ export class CityConfigService implements OnModuleInit {
       reportsInProgressCount,
       pendingTotalCount: activeReportsCount + pendingContactMessagesCount,
       urgentAlertsCount,
-      reportsTrend: -12,
+      reportsTrend,
       suggestionsCount: pendingSuggestionsCount,
-      suggestionsTrend: 0,
+      suggestionsTrend,
       trendData: satisfactionSummary.trendData,
       ratingsCount: satisfactionSummary.ratingsCount,
       alerts,
@@ -394,7 +421,7 @@ export class CityConfigService implements OnModuleInit {
       throw new NotFoundException('Ville introuvable');
     }
 
-    const patch: Partial<City> = {};
+    const patch: Record<string, unknown> = {};
     if (typeof data.name === 'string') patch.name = data.name;
     if (Array.isArray(data.features)) patch.features = data.features as string[];
     if (typeof data.dataRetentionPolicy === 'string') {
@@ -446,6 +473,6 @@ export class CityConfigService implements OnModuleInit {
       });
     }
 
-    return this.cityRepository.findOneByOrFail({ id: cityId });
+    return await this.cityRepository.findOneByOrFail({ id: cityId });
   }
 }
