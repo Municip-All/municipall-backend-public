@@ -24,6 +24,14 @@ export class City {
   @Column({ name: 'logo_url', nullable: true })
   logoUrl?: string;
 
+  /** Fond des écrans de l'app mobile (mode clair) */
+  @Column({ name: 'background_color_light', nullable: true })
+  backgroundColorLight?: string;
+
+  /** Fond des écrans de l'app mobile (mode sombre) */
+  @Column({ name: 'background_color_dark', nullable: true })
+  backgroundColorDark?: string;
+
   @Column({ name: 'contact_email', nullable: true })
   contactEmail?: string;
 
@@ -37,8 +45,56 @@ export class City {
   @Column({ name: 'data_retention_policy', type: 'text', nullable: true })
   dataRetentionPolicy?: string;
 
+  /** Référence commerciale du contrat plateforme */
+  @Column({ name: 'contract_number', nullable: true })
+  contractNumber?: string;
+
+  @Column({ name: 'contract_signed_at', type: 'date', nullable: true })
+  contractSignedAt?: string;
+
+  @Column({ name: 'contract_notes', type: 'text', nullable: true })
+  contractNotes?: string;
+
+  /** Interlocuteur principal côté commune (CRM interne) */
+  @Column({ name: 'municipality_contact_name', nullable: true })
+  municipalityContactName?: string;
+
+  @Column({ name: 'municipality_contact_role', nullable: true })
+  municipalityContactRole?: string;
+
+  @Column({ name: 'municipality_contact_email', nullable: true })
+  municipalityContactEmail?: string;
+
+  @Column({ name: 'municipality_contact_phone', nullable: true })
+  municipalityContactPhone?: string;
+
+  /** Équipe Municip'All rattachée au dossier */
+  @Column({ name: 'assigned_tech_name', nullable: true })
+  assignedTechName?: string;
+
+  @Column({ name: 'assigned_tech_email', nullable: true })
+  assignedTechEmail?: string;
+
+  @Column({ name: 'sales_rep_name', nullable: true })
+  salesRepName?: string;
+
+  @Column({ name: 'sales_rep_email', nullable: true })
+  salesRepEmail?: string;
+
+  /** widget | mobile_app | both */
+  @Column({ name: 'integration_type', default: 'mobile_app' })
+  integrationType!: string;
+
   @Column('simple-array')
   features!: string[];
+
+  /** Contrat plateforme (WebAdmin) : module transports IDFM autorisé */
+  @Column({ name: 'is_transport_feature_allowed', default: false })
+  isTransportFeatureAllowed!: boolean;
+
+  /** Activation mairie (Backoffice) : visible dans l'app citoyenne */
+  @Column({ name: 'is_transport_feature_enabled', default: false })
+  isTransportFeatureEnabled!: boolean;
 
   // PostGIS geometry for city boundary
   @Column({
@@ -47,7 +103,7 @@ export class City {
     srid: 4326,
     nullable: true,
   })
-  boundary?: any;
+  boundary?: object;
 
   @Column('simple-json', { nullable: true })
   neighborhoods?: { id: string; name: string; points: [number, number][] }[];
@@ -57,6 +113,29 @@ export class City {
 
   @Column('simple-json', { name: 'useful_links', nullable: true })
   usefulLinks?: { label: string; url: string; icon: string }[];
+
+  @Column('simple-json', { nullable: true })
+  associations?: {
+    id: string;
+    name: string;
+    category: 'association' | 'groupe-parole' | 'autre';
+    description?: string;
+    address?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    website?: string;
+  }[];
+
+  @Column('simple-json', { name: 'public_profile', nullable: true })
+  publicProfile?: {
+    mayorName?: string;
+    mayorTitle?: string;
+    welcomeText?: string;
+    description?: string;
+    address?: string;
+    website?: string;
+    openingHours?: string;
+  };
 
   @Column('simple-json', { name: 'waste_config', nullable: true })
   wasteConfig?: {

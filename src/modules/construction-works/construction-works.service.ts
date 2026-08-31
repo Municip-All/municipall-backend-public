@@ -13,7 +13,7 @@ export class ConstructionWorksService {
   ) {}
 
   async findAll(tenantId: string): Promise<ConstructionWork[]> {
-    return this.repository.find({
+    return await this.repository.find({
       where: { tenantId },
       order: { startDate: 'DESC' },
     });
@@ -36,7 +36,7 @@ export class ConstructionWorksService {
       startDate: data.startDate ? new Date(data.startDate) : undefined,
       endDate: data.endDate ? new Date(data.endDate) : undefined,
     });
-    return this.repository.save(work) as unknown as Promise<ConstructionWork>;
+    return await this.repository.save(work);
   }
 
   async update(
@@ -53,7 +53,7 @@ export class ConstructionWorksService {
     if (data.status) work.status = data.status;
     if (data.impactType) work.impactType = data.impactType;
 
-    return this.repository.save(work) as unknown as Promise<ConstructionWork>;
+    return await this.repository.save(work);
   }
 
   async remove(id: number, tenantId: string): Promise<void> {

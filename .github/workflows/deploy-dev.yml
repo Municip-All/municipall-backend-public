@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Seed script dry-run
+        run: npm run seed:demo -- --dry-run
+
   build-and-push:
     needs: validate-build
     runs-on: ubuntu-latest
@@ -91,8 +94,36 @@ jobs:
             JWT_SECRET_DEV=${{ secrets.JWT_SECRET_DEV }}
             OPENAI_API_KEY_DEV=${{ secrets.OPENAI_API_KEY_DEV }}
             OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+            IDFM_API_KEY=${{ secrets.IDFM_API_KEY }}
             PLATFORM_ADMIN_KEY=${{ secrets.PLATFORM_ADMIN_KEY }}
             EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.dev.yml pull
             docker compose -f docker-compose.dev.yml up -d
+
+            echo "Attente démarrage backend…"
+            READY=0
+            for i in $(seq 1 30); do
+              CID=$(docker compose -f docker-compose.dev.yml ps -q backend-dev 2>/dev/null || true)
+              if [ -n "$CID" ]; then
+                STATUS=$(docker inspect -f '{{.State.Status}}' "$CID" 2>/dev/null || echo "unknown")
+              else
+                STATUS="missing"
+              fi
+              if [ "$STATUS" = "running" ]; then
+                if docker compose -f docker-compose.dev.yml exec -T backend-dev node -e "process.exit(0)" 2>/dev/null; then
+                  READY=1
+                  break
+                fi
+              fi
+              echo "  tentative $i/30 — état: $STATUS"
+              sleep 5
+            done
+
+            if [ "$READY" != "1" ]; then
+              echo "Backend indisponible — logs récents :"
+              docker compose -f docker-compose.dev.yml logs --tail=80 backend-dev || true
+              exit 1
+            fi
+
+            echo "Déploiement terminé. Seed de démo : via WebAdmin (Base de données) ou workflow seed-dev.yml."

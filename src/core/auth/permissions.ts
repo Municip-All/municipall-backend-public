@@ -25,6 +25,9 @@ export enum Permission {
   TEAM_MANAGE = 'team:manage',
   TEAM_KPIS = 'team:kpis',
 
+  FEEDBACK_CREATE = 'feedback:create',
+  FEEDBACK_READ = 'feedback:read',
+
   PROFILE_READ = 'profile:read',
   PROFILE_WRITE = 'profile:write',
 
@@ -58,6 +61,7 @@ const MAYOR_PERMISSIONS: Permission[] = [
   Permission.TEAM_READ,
   Permission.TEAM_MANAGE,
   Permission.TEAM_KPIS,
+  Permission.FEEDBACK_READ,
   Permission.PROFILE_READ,
   Permission.PROFILE_WRITE,
 ];
@@ -80,11 +84,13 @@ const ASSISTANT_PERMISSIONS: Permission[] = [
 const CITIZEN_PERMISSIONS: Permission[] = [
   Permission.REPORTS_CREATE,
   Permission.REPORTS_READ,
+  Permission.REPORTS_REPLY,
   Permission.CONTACT_CREATE,
   Permission.CONTACT_READ,
   Permission.CONTACT_REPLY,
   Permission.CITY_CONFIG_READ,
   Permission.WIDGETS_READ,
+  Permission.FEEDBACK_CREATE,
   Permission.PROFILE_READ,
   Permission.PROFILE_WRITE,
 ];

@@ -14,6 +14,12 @@ import { CreateContactMessageDto } from './dto/create-contact-message.dto';
 import { ReplyContactTicketDto } from './dto/reply-contact-ticket.dto';
 import { User } from '../user/user.entity';
 import { resolveReportSenderRole } from '../../core/auth/roles';
+import {
+  isAllowedStatus,
+  isTerminalContactStatus,
+  statusAfterAgentFirstReply,
+} from './contact-ticket-status';
+import { FeedbackService, UserRatingView } from '../feedback/feedback.service';
 
 const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 const CLOSED_STATUS = 'Clôturé';
@@ -30,6 +36,7 @@ export interface TicketMessageView {
 export interface ContactTicketListItem {
   id: number;
   subject: string;
+  ticketType: 'question' | 'suggestion';
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +50,7 @@ export interface ContactTicketListItem {
 export interface ContactTicketDetail {
   id: number;
   subject: string;
+  ticketType: 'question' | 'suggestion';
   status: string;
   userId: number;
   citizenName: string;
@@ -50,6 +58,7 @@ export interface ContactTicketDetail {
   updatedAt: string;
   closedAt?: string;
   messages: TicketMessageView[];
+  userRating?: UserRatingView;
 }
 
 @Injectable()
@@ -63,6 +72,7 @@ export class ContactTicketsService implements OnModuleInit {
     private readonly legacyRepository: Repository<ContactMessage>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   async onModuleInit() {
@@ -130,8 +140,8 @@ export class ContactTicketsService implements OnModuleInit {
     return result;
   }
 
-  private async getLastMessage(ticketId: number) {
-    return this.messageRepository.findOne({
+  async findLastMessage(ticketId: number): Promise<ContactTicketMessage | null> {
+    return await this.messageRepository.findOne({
       where: { ticketId },
       order: { createdAt: 'DESC' },
     });
@@ -144,6 +154,7 @@ export class ContactTicketsService implements OnModuleInit {
     return {
       id: ticket.id,
       subject: ticket.subject,
+      ticketType: ticket.ticketType ?? 'question',
       status: ticket.status,
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString(),
@@ -162,11 +173,14 @@ export class ContactTicketsService implements OnModuleInit {
     userId: number,
     data: CreateContactMessageDto,
   ): Promise<ContactTicketDetail> {
+    const ticketType = data.ticketType === 'suggestion' ? 'suggestion' : 'question';
+
     const ticket = await this.ticketRepository.save(
       this.ticketRepository.create({
         tenantId,
         userId,
         subject: data.subject.trim(),
+        ticketType,
         status: 'En attente',
       }),
     );
@@ -191,7 +205,7 @@ export class ContactTicketsService implements OnModuleInit {
     });
 
     return Promise.all(
-      tickets.map(async (ticket) => this.toListItem(ticket, await this.getLastMessage(ticket.id))),
+      tickets.map(async (ticket) => this.toListItem(ticket, await this.findLastMessage(ticket.id))),
     );
   }
 
@@ -203,18 +217,17 @@ export class ContactTicketsService implements OnModuleInit {
     });
 
     return Promise.all(
-      tickets.map(async (ticket) => this.toListItem(ticket, await this.getLastMessage(ticket.id))),
+      tickets.map(async (ticket) => this.toListItem(ticket, await this.findLastMessage(ticket.id))),
     );
   }
 
   async findPendingForTenant(tenantId: string): Promise<ContactTicket[]> {
-    return this.ticketRepository
-      .createQueryBuilder('ticket')
-      .where('ticket.tenant_id = :tenantId', { tenantId })
-      .andWhere('ticket.status IN (:...statuses)', { statuses: ['En attente', 'En cours'] })
-      .orderBy('ticket.updated_at', 'DESC')
-      .take(30)
-      .getMany();
+    const tickets = await this.ticketRepository.find({
+      where: { tenantId },
+      order: { updatedAt: 'DESC' },
+      take: 100,
+    });
+    return tickets.filter((t) => !isTerminalContactStatus(t.ticketType ?? 'question', t.status));
   }
 
   isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
@@ -243,9 +256,20 @@ export class ContactTicketsService implements OnModuleInit {
 
     const citizenName = await this.resolveSenderDisplayName(ticket.userId, 'citizen');
 
+    let userRating: UserRatingView | undefined;
+    if (!isAgent) {
+      userRating = await this.feedbackService.findUserRating(
+        tenantId,
+        userId,
+        'contact_ticket',
+        ticket.id,
+      );
+    }
+
     return {
       id: ticket.id,
       subject: ticket.subject,
+      ticketType: ticket.ticketType ?? 'question',
       status: ticket.status,
       userId: ticket.userId,
       citizenName,
@@ -253,6 +277,7 @@ export class ContactTicketsService implements OnModuleInit {
       updatedAt: ticket.updatedAt.toISOString(),
       closedAt: ticket.closedAt?.toISOString(),
       messages: await this.mapMessages(messages),
+      userRating,
     };
   }
 
@@ -266,7 +291,7 @@ export class ContactTicketsService implements OnModuleInit {
     const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
     if (!ticket) throw new NotFoundException('Conversation introuvable');
 
-    if (ticket.status === CLOSED_STATUS) {
+    if (isTerminalContactStatus(ticket.ticketType ?? 'question', ticket.status)) {
       throw new BadRequestException('Cette conversation est clôturée');
     }
 
@@ -287,38 +312,66 @@ export class ContactTicketsService implements OnModuleInit {
     );
 
     if (isAgent && ticket.status === 'En attente') {
-      ticket.status = 'En cours';
+      ticket.status = statusAfterAgentFirstReply(ticket.ticketType ?? 'question');
       await this.ticketRepository.save(ticket);
     } else if (!isAgent) {
       ticket.updatedAt = new Date();
       await this.ticketRepository.save(ticket);
     }
 
-    return this.findById(id, tenantId, senderId, role);
+    return await this.findById(id, tenantId, senderId, role);
   }
 
   async close(id: number, tenantId: string, agentId: number): Promise<ContactTicketDetail> {
+    return await this.updateStatus(id, tenantId, agentId, CLOSED_STATUS);
+  }
+
+  async updateStatus(
+    id: number,
+    tenantId: string,
+    agentId: number,
+    status: string,
+  ): Promise<ContactTicketDetail> {
     const ticket = await this.ticketRepository.findOne({ where: { id, tenantId } });
     if (!ticket) throw new NotFoundException('Conversation introuvable');
 
-    if (ticket.status === CLOSED_STATUS) {
-      return this.findById(id, tenantId, agentId, 'agent');
+    const ticketType = ticket.ticketType ?? 'question';
+    if (isTerminalContactStatus(ticketType, ticket.status)) {
+      return await this.findById(id, tenantId, agentId, 'agent');
     }
 
-    ticket.status = CLOSED_STATUS;
-    ticket.closedAt = new Date();
-    ticket.closedByUserId = agentId;
-    await this.ticketRepository.save(ticket);
+    if (!isAllowedStatus(ticketType, status)) {
+      throw new BadRequestException(`Statut invalide pour ce type de demande: ${status}`);
+    }
 
-    await this.messageRepository.save(
-      this.messageRepository.create({
-        ticketId: ticket.id,
-        senderId: agentId,
-        senderRole: 'agent',
-        body: '— Conversation clôturée par la mairie. Merci de nous avoir contactés.',
-      }),
-    );
+    if (ticket.status !== status) {
+      ticket.status = status;
+      if (isTerminalContactStatus(ticketType, status)) {
+        ticket.closedAt = new Date();
+        ticket.closedByUserId = agentId;
+      } else {
+        ticket.closedAt = undefined;
+        ticket.closedByUserId = undefined;
+      }
+      await this.ticketRepository.save(ticket);
 
-    return this.findById(id, tenantId, agentId, 'agent');
+      const body =
+        ticketType === 'suggestion'
+          ? `Statut de votre suggestion mis à jour : ${status}.`
+          : status === CLOSED_STATUS
+            ? '— Conversation clôturée par la mairie. Merci de nous avoir contactés.'
+            : `Statut mis à jour : ${status}.`;
+
+      await this.messageRepository.save(
+        this.messageRepository.create({
+          ticketId: ticket.id,
+          senderId: agentId,
+          senderRole: 'agent',
+          body,
+        }),
+      );
+    }
+
+    return await this.findById(id, tenantId, agentId, 'agent');
   }
 }

@@ -19,10 +19,10 @@ export class Invitation {
   @Column({ nullable: true })
   token?: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: 'expires_at', nullable: true })
   expiresAt?: Date;
 
   /** Rôle attribué à l'acceptation : mayor | assistant | agent */

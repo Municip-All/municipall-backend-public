@@ -1,11 +1,9 @@
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../user/user.entity';
 import { SendTargetedNotificationDto } from './dto/send-targeted-notification.dto';
 import { ExpoPushService } from './expo-push.service';
-
-const STAFF_ROLES = new Set(['admin', 'agent', 'agent municipal', 'mairie', 'moderator', 'staff']);
 
 export interface SendTargetedNotificationResult {
   recipientCount: number;
@@ -23,16 +21,6 @@ export class NotificationsService {
     private readonly userRepository: Repository<User>,
     private readonly expoPush: ExpoPushService,
   ) {}
-
-  assertCanSendBroadcast(role: string | undefined): void {
-    const normalized = (role ?? '').trim().toLowerCase();
-    if (normalized === 'citoyen' || normalized === 'citizen') {
-      throw new ForbiddenException('Seuls les agents municipaux peuvent envoyer des alertes.');
-    }
-    if (normalized && !STAFF_ROLES.has(normalized)) {
-      this.logger.warn(`Broadcast allowed for role "${role}" (not in staff list)`);
-    }
-  }
 
   async registerPushToken(userId: number, expoPushToken: string): Promise<{ ok: true }> {
     await this.userRepository.update({ id: userId }, { expoPushToken });
@@ -98,13 +86,23 @@ export class NotificationsService {
     return users;
   }
 
-  async sendPushNotification(userId: string, title: string, body: string) {
+  async sendPushNotification(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, unknown>,
+  ) {
     const user = await this.userRepository.findOne({
       where: { id: Number(userId) },
     });
     if (!user?.expoPushToken) return { sent: 0, failed: 0 };
-    return this.expoPush.sendBatch([
-      { to: user.expoPushToken, title, body, data: { type: 'direct' } },
+    return await this.expoPush.sendBatch([
+      {
+        to: user.expoPushToken,
+        title,
+        body,
+        data: { type: 'direct', ...data },
+      },
     ]);
   }
 }

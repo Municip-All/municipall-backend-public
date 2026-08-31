@@ -2,10 +2,14 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import type { ParsedQs } from 'qs';
 import { Report } from './entities/report.entity';
 import { ReportMessage, ReportMessageRole } from './entities/report-message.entity';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -13,6 +17,10 @@ import { User } from '../user/user.entity';
 import { City } from '../city-config/entities/city.entity';
 import { resolveReportSenderRole } from '../../core/auth/roles';
 import { AuditService } from '../audit/audit.service';
+import { FeedbackService, UserRatingView } from '../feedback/feedback.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { AiEngineService } from '../ai-engine/ai-engine.service';
+import { AI_ENRICHMENT_QUEUE } from '../ai-engine/ai-enrichment.processor';
 
 export interface ReportMessageView {
   id: number;
@@ -32,14 +40,21 @@ export interface ReportCitizenView {
   cityName?: string;
 }
 
-interface CoordinateRow {
-  lat: string | number;
-  lon: string | number;
-}
-
-function isCoordinateRow(value: unknown): value is CoordinateRow {
-  if (typeof value !== 'object' || value === null) return false;
-  return 'lat' in value && 'lon' in value;
+export interface ReportListItem {
+  id: number;
+  category: string;
+  status: string;
+  description?: string;
+  imageUrl?: string;
+  lat: number;
+  lon: number;
+  createdAt: string;
+  updatedAt: string;
+  lastMessage?: {
+    body: string;
+    senderRole: ReportMessageRole;
+    createdAt: string;
+  };
 }
 
 export interface ReportDetailView {
@@ -57,10 +72,13 @@ export interface ReportDetailView {
   updatedAt: string;
   citizen?: ReportCitizenView;
   messages: ReportMessageView[];
+  userRating?: UserRatingView;
 }
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     @InjectRepository(Report)
     private readonly reportRepository: Repository<Report>,
@@ -71,6 +89,10 @@ export class ReportsService {
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
     private readonly auditService: AuditService,
+    private readonly notificationsService: NotificationsService,
+    private readonly feedbackService: FeedbackService,
+    private readonly aiEngineService: AiEngineService,
+    @InjectQueue(AI_ENRICHMENT_QUEUE) private readonly aiQueue: Queue,
   ) {}
 
   async create(tenantId: string, data: CreateReportDto, actorUserId?: number): Promise<Report> {
@@ -107,7 +129,8 @@ export class ReportsService {
         userId: data.userId,
         status: data.status ?? 'En attente',
         isResident,
-        location: () => `ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)`,
+        lat,
+        lon,
       })
       .returning('id')
       .execute();
@@ -119,6 +142,23 @@ export class ReportsService {
     }
 
     const savedReport = await this.reportRepository.findOneByOrFail({ id });
+
+    // ─── Enrichissement IA (asynchrone via BullMQ) ───
+    try {
+      await this.aiQueue.add('enrich', {
+        report_id: savedReport.id,
+        tenant_id: tenantId,
+        user_id: data.userId,
+        content: data.description ?? '',
+        lat,
+        lon,
+      });
+      this.logger.log(`AI enrichment queued for report ${savedReport.id}`);
+    } catch (queueErr) {
+      this.logger.error(
+        `AI queue dispatch failed for report ${savedReport.id}: ${(queueErr as Error).message}`,
+      );
+    }
 
     if (actorUserId) {
       await this.auditService.log({
@@ -135,7 +175,7 @@ export class ReportsService {
       try {
         await this.reportRepository.manager.increment('User', { id: data.userId }, 'points', 10);
       } catch (error) {
-        console.error('Failed to award points to user:', error);
+        this.logger.error('Failed to award points to user:', error);
       }
     }
 
@@ -143,22 +183,46 @@ export class ReportsService {
   }
 
   async findAll(tenantId: string): Promise<Report[]> {
-    return this.reportRepository.find({
+    return await this.reportRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
     });
   }
 
-  private async extractCoordinates(reportId: number): Promise<{ lat: number; lon: number }> {
-    const raw: unknown = await this.reportRepository.query(
-      `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon FROM reports WHERE id = $1`,
-      [reportId],
-    );
-    const row = Array.isArray(raw) && isCoordinateRow(raw[0]) ? raw[0] : undefined;
+  private async toListItem(report: Report): Promise<ReportListItem> {
+    const lat = report.lat ?? 0;
+    const lon = report.lon ?? 0;
+    const last = await this.messageRepository.findOne({
+      where: { reportId: report.id },
+      order: { createdAt: 'DESC' },
+    });
     return {
-      lat: row ? Number(row.lat) : 0,
-      lon: row ? Number(row.lon) : 0,
+      id: report.id,
+      category: report.category,
+      status: report.status,
+      description: report.description,
+      imageUrl: report.imageUrl,
+      lat,
+      lon,
+      createdAt: report.createdAt.toISOString(),
+      updatedAt: report.updatedAt.toISOString(),
+      lastMessage: last
+        ? {
+            body: last.body,
+            senderRole: last.senderRole,
+            createdAt: last.createdAt.toISOString(),
+          }
+        : undefined,
     };
+  }
+
+  async findByUser(tenantId: string, userId: number): Promise<ReportListItem[]> {
+    const reports = await this.reportRepository.find({
+      where: { tenantId, userId },
+      order: { updatedAt: 'DESC' },
+      take: 50,
+    });
+    return Promise.all(reports.map((report) => this.toListItem(report)));
   }
 
   private async resolveSenderDisplayName(userId: number, role: ReportMessageRole): Promise<string> {
@@ -193,7 +257,12 @@ export class ReportsService {
     return result;
   }
 
-  async findDetail(tenantId: string, id: number): Promise<ReportDetailView> {
+  async findDetail(
+    tenantId: string,
+    id: number,
+    userId: number,
+    role: string,
+  ): Promise<ReportDetailView> {
     const report = await this.reportRepository.findOne({
       where: { id, tenantId },
     });
@@ -201,7 +270,13 @@ export class ReportsService {
       throw new NotFoundException('Signalement introuvable');
     }
 
-    const { lat, lon } = await this.extractCoordinates(id);
+    const isAgent = resolveReportSenderRole(role) === 'agent';
+    if (!isAgent && report.userId != null && Number(report.userId) !== Number(userId)) {
+      throw new ForbiddenException('Accès non autorisé à ce signalement');
+    }
+
+    const lat = report.lat ?? 0;
+    const lon = report.lon ?? 0;
     const rawMessages = await this.messageRepository.find({
       where: { reportId: id },
       order: { createdAt: 'ASC' },
@@ -231,6 +306,11 @@ export class ReportsService {
       }
     }
 
+    let userRating: UserRatingView | undefined;
+    if (!isAgent && report.userId != null) {
+      userRating = await this.feedbackService.findUserRating(tenantId, userId, 'report', report.id);
+    }
+
     return {
       id: report.id,
       tenantId: report.tenantId,
@@ -246,6 +326,7 @@ export class ReportsService {
       updatedAt: report.updatedAt.toISOString(),
       citizen,
       messages,
+      userRating,
     };
   }
 
@@ -254,6 +335,7 @@ export class ReportsService {
     reportId: number,
     senderId: number,
     body: string,
+    roleHint?: string,
   ): Promise<ReportDetailView> {
     const sender = await this.userRepository.findOne({
       where: { id: senderId },
@@ -263,7 +345,7 @@ export class ReportsService {
       throw new ForbiddenException('Utilisateur introuvable.');
     }
 
-    const senderRole = resolveReportSenderRole(sender.role);
+    const senderRole = resolveReportSenderRole(roleHint ?? sender.role);
 
     if (senderRole === 'agent' && sender.cityId && sender.cityId !== tenantId) {
       throw new ForbiddenException("Vous n'êtes pas autorisé pour cette ville.");
@@ -313,7 +395,17 @@ export class ReportsService {
       metadata: { senderRole },
     });
 
-    return this.findDetail(tenantId, reportId);
+    if (senderRole === 'agent' && report.userId) {
+      const preview = trimmed.length > 120 ? `${trimmed.slice(0, 117)}…` : trimmed;
+      void this.notificationsService
+        .sendPushNotification(String(report.userId), 'Réponse sur votre signalement', preview, {
+          type: 'report',
+          reportId,
+        })
+        .catch(() => undefined);
+    }
+
+    return this.findDetail(tenantId, reportId, senderId, sender.role);
   }
 
   async updateStatus(
@@ -345,11 +437,7 @@ export class ReportsService {
     return saved;
   }
 
-  isInsideBoundary(_longitude: number, _latitude: number, _cityBoundary: any): boolean {
-    return true;
-  }
-
-  async getClusteredReports(_bounds: any) {
+  async getClusteredReports(_bounds: ParsedQs) {
     return await Promise.resolve([]);
   }
 }

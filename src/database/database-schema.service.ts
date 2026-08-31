@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
 /**
@@ -10,7 +11,10 @@ import { DataSource } from 'typeorm';
 export class DatabaseSchemaService implements OnApplicationBootstrap {
   private readonly logger = new Logger(DatabaseSchemaService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly configService: ConfigService,
+  ) {}
 
   async onApplicationBootstrap() {
     if (!this.shouldEnsureSchema()) {
@@ -23,17 +27,19 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
     }
 
     await this.ensurePostgis();
+    await this.ensurePgvector();
     await this.ensureMissingSchema();
+    await this.ensureAiColumns();
   }
 
   private shouldEnsureSchema(): boolean {
-    if (process.env.DB_ENSURE_SCHEMA === 'false') {
+    if (this.configService.get<string>('DB_ENSURE_SCHEMA') === 'false') {
       return false;
     }
-    if (process.env.NODE_ENV === 'production') {
+    if (this.configService.get<string>('NODE_ENV') === 'production') {
       return true;
     }
-    return process.env.DB_ENSURE_SCHEMA === 'true';
+    return this.configService.get<string>('DB_ENSURE_SCHEMA') === 'true';
   }
 
   private async ensurePostgis() {
@@ -44,6 +50,71 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
         'PostGIS extension not available (non-fatal)',
         err instanceof Error ? err.message : err,
       );
+    }
+  }
+
+  private async ensurePgvector() {
+    try {
+      await this.dataSource.query('CREATE EXTENSION IF NOT EXISTS vector');
+    } catch (err) {
+      this.logger.warn(
+        'pgvector extension not available (non-fatal)',
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  private async ensureAiColumns() {
+    const qRunner = this.dataSource.createQueryRunner();
+    try {
+      const columns: { column_name: string }[] = (await qRunner.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'reports'`,
+      )) as { column_name: string }[];
+      const existing = new Set(columns.map((c) => c.column_name));
+      const alters: string[] = [];
+
+      if (!existing.has('sentiment_score')) {
+        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS sentiment_score real`);
+      }
+      if (!existing.has('ai_confidence')) {
+        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_confidence real`);
+      }
+      if (!existing.has('is_spam')) {
+        alters.push(
+          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_spam boolean NOT NULL DEFAULT false`,
+        );
+      }
+      if (!existing.has('duplicate_of_id')) {
+        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_of_id integer`);
+      }
+      if (!existing.has('municipal_service')) {
+        alters.push(
+          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS municipal_service character varying`,
+        );
+      }
+      if (!existing.has('ai_category')) {
+        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_category character varying`);
+      }
+      if (!existing.has('ai_processed')) {
+        alters.push(
+          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_processed boolean NOT NULL DEFAULT false`,
+        );
+      }
+      if (!existing.has('embedding')) {
+        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS embedding vector(384)`);
+      }
+      for (const q of alters) {
+        try {
+          await qRunner.query(q);
+          this.logger.log(`AI column ensured via: ${q.slice(0, 80)}…`);
+        } catch (err) {
+          if (!this.isBenignSchemaError(err)) {
+            this.logger.warn(`AI column ensure skipped: ${q.slice(0, 80)}…`, err);
+          }
+        }
+      }
+    } finally {
+      await qRunner.release();
     }
   }
 

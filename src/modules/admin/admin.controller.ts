@@ -9,22 +9,24 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  BadRequestException,
   ParseIntPipe,
   NotFoundException,
   UseGuards,
 } from '@nestjs/common';
-import { AdminService, CreateCityData } from './admin.service';
+import { AdminService } from './admin.service';
 import { DockerService } from './docker.service';
 import { DatabaseService } from './database.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Invitation } from './entities/invitation.entity';
-import { Repository } from 'typeorm';
 import { Public } from '../../core/decorators/public.decorator';
 import { PlatformAdminGuard } from '../../core/guards/platform-admin.guard';
 import { StaffService } from '../staff/staff.service';
 import { CreateMayorDto } from '../staff/dto/create-staff-invitation.dto';
 import { UpdateAdminUserDto } from './dto/update-user.dto';
+import { DemoSeedService } from './demo-seed.service';
+import { RunDemoSeedDto } from './dto/run-demo-seed.dto';
+import { DatabaseQueryDto } from './dto/database-query.dto';
+import { CreateCityDto } from './dto/create-city.dto';
+import { CreateInvitationDto } from './dto/create-invitation.dto';
+import { UpdateCityDto } from '../city-config/dto/update-city.dto';
 
 @Public()
 @UseGuards(PlatformAdminGuard)
@@ -35,8 +37,7 @@ export class AdminController {
     private readonly dockerService: DockerService,
     private readonly databaseService: DatabaseService,
     private readonly staffService: StaffService,
-    @InjectRepository(Invitation)
-    private invitationRepository: Repository<Invitation>,
+    private readonly demoSeedService: DemoSeedService,
   ) {}
 
   @Get('stats')
@@ -121,7 +122,8 @@ export class AdminController {
   }
 
   @Post('database/query')
-  async executeQuery(@Body('query') query: string) {
+  async executeQuery(@Body() body: DatabaseQueryDto) {
+    const query = body.query;
     if (!query) {
       return { success: false, error: 'Query is required' };
     }
@@ -145,7 +147,7 @@ export class AdminController {
   }
 
   @Post('cities')
-  async createCity(@Body() data: CreateCityData) {
+  async createCity(@Body() data: CreateCityDto) {
     const city = await this.adminService.createCity(data);
     return {
       success: true,
@@ -154,7 +156,7 @@ export class AdminController {
   }
 
   @Patch('cities/:id')
-  async updateCity(@Param('id') id: string, @Body() data: Partial<CreateCityData>) {
+  async updateCity(@Param('id') id: string, @Body() data: UpdateCityDto) {
     const city = await this.adminService.updateCity(id, data);
     return {
       success: true,
@@ -202,24 +204,12 @@ export class AdminController {
   }
 
   @Post('cities/:id/invitations')
-  async createInvitation(
-    @Param('id') cityId: string,
-    @Body() body: { email: string; name?: string; role?: string },
-  ) {
-    const email = body.email;
-    if (!email) throw new BadRequestException('Email is required');
-
-    const invitation = this.invitationRepository.create({
-      email,
-      name: body.name,
-      cityId,
-      role: body.role ?? 'assistant',
-      status: 'pending',
-      token: Math.random().toString(36).substring(2) + Date.now().toString(36),
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+  async createInvitation(@Param('id') cityId: string, @Body() body: CreateInvitationDto) {
+    const invitation = await this.staffService.createInvitation(cityId, 0, {
+      email: body.email,
+      name: body.name ?? '',
+      role: (body.role as 'assistant' | 'agent') ?? 'assistant',
     });
-
-    await this.invitationRepository.save(invitation);
 
     return {
       success: true,
@@ -233,6 +223,25 @@ export class AdminController {
     return {
       success: true,
       data: activity,
+    };
+  }
+
+  @Get('demo/seed/status')
+  getDemoSeedStatus() {
+    return {
+      success: true,
+      data: {
+        enabled: this.demoSeedService.isEnabled(),
+      },
+    };
+  }
+
+  @Post('demo/seed')
+  async runDemoSeed(@Body() body: RunDemoSeedDto) {
+    const result = await this.demoSeedService.runSeed({ reset: body.reset });
+    return {
+      success: true,
+      data: result,
     };
   }
 

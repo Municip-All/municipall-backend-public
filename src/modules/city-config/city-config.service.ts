@@ -1,15 +1,21 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { Report } from '../reports/entities/report.entity';
 import { User } from '../user/user.entity';
-import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
-import { ContactTicketMessage } from '../contact-messages/entities/contact-ticket-message.entity';
 import { City } from './entities/city.entity';
 import { AuditService } from '../audit/audit.service';
+import { FeedbackService } from '../feedback/feedback.service';
+import { ContactTicketsService } from '../contact-messages/contact-tickets.service';
+import { ContactTicket } from '../contact-messages/entities/contact-ticket.entity';
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
-const URGENT_KEYWORDS = /urgent|très grave|tres grave|grave|danger|accident/i;
 
 export interface CityContactConfig {
   email?: string;
@@ -28,6 +34,8 @@ export interface CityConfig {
   theme: {
     primaryColor: string;
     secondaryColor?: string;
+    backgroundColorLight?: string;
+    backgroundColorDark?: string;
     useGradient: boolean;
     logoUrl?: string;
   };
@@ -43,6 +51,29 @@ export interface CityConfig {
       time: string;
     }[];
   };
+  /** Contrat plateforme (lecture backoffice / webadmin) */
+  isTransportFeatureAllowed?: boolean;
+  /** Activé pour les citoyens (effectif = allowed && enabled) */
+  isTransportFeatureEnabled?: boolean;
+  associations?: {
+    id: string;
+    name: string;
+    category: 'association' | 'groupe-parole' | 'autre';
+    description?: string;
+    address?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    website?: string;
+  }[];
+  publicProfile?: {
+    mayorName?: string;
+    mayorTitle?: string;
+    welcomeText?: string;
+    description?: string;
+    address?: string;
+    website?: string;
+    openingHours?: string;
+  };
 }
 
 export type DashboardAlertSeverity = 'urgent' | 'high' | 'normal';
@@ -56,6 +87,7 @@ export interface DashboardAlert {
   subtitle: string;
   createdAt: string;
   entityId: number;
+  contactKind?: 'question' | 'suggestion';
 }
 
 export interface CityDashboardStats {
@@ -72,6 +104,7 @@ export interface CityDashboardStats {
   suggestionsCount: number;
   suggestionsTrend: number;
   trendData: { name: string; satisfaction: number }[];
+  ratingsCount: number;
   alerts: DashboardAlert[];
 }
 
@@ -91,6 +124,8 @@ function resolveOfficialName(city: City): string {
 
 @Injectable()
 export class CityConfigService implements OnModuleInit {
+  private readonly logger = new Logger(CityConfigService.name);
+
   constructor(
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
@@ -98,17 +133,10 @@ export class CityConfigService implements OnModuleInit {
     private readonly reportRepository: Repository<Report>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(ContactTicket)
-    private readonly contactTicketRepository: Repository<ContactTicket>,
-    @InjectRepository(ContactTicketMessage)
-    private readonly contactTicketMessageRepository: Repository<ContactTicketMessage>,
+    private readonly contactTicketsService: ContactTicketsService,
     private readonly auditService: AuditService,
+    private readonly feedbackService: FeedbackService,
   ) {}
-
-  private isUrgentTicket(ticket: ContactTicket, lastBody?: string): boolean {
-    const text = `${ticket.subject} ${lastBody ?? ''}`;
-    return URGENT_KEYWORDS.test(text);
-  }
 
   private buildAlerts(
     pendingReports: Report[],
@@ -130,14 +158,17 @@ export class CityConfigService implements OnModuleInit {
 
     const messageAlerts: DashboardAlert[] = pendingTickets.map((ticket) => {
       const lastBody = lastBodies.get(ticket.id) ?? '';
+      const isSuggestion = ticket.ticketType === 'suggestion';
       return {
         id: `contact-${ticket.id}`,
         type: 'contact',
-        severity: this.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
-        title: `Conversation — ${ticket.subject}`,
-        subtitle: lastBody.slice(0, 120) || 'Nouvelle conversation',
+        severity: this.contactTicketsService.isUrgentTicket(ticket, lastBody) ? 'urgent' : 'normal',
+        title: isSuggestion ? `Suggestion — ${ticket.subject}` : `Question — ${ticket.subject}`,
+        subtitle:
+          lastBody.slice(0, 120) || (isSuggestion ? 'Nouvelle suggestion' : 'Nouvelle question'),
         createdAt: ticket.updatedAt.toISOString(),
         entityId: ticket.id,
+        contactKind: isSuggestion ? 'suggestion' : 'question',
       };
     });
 
@@ -163,17 +194,25 @@ export class CityConfigService implements OnModuleInit {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(
+      this.logger.warn(
         'CityConfigService: Could not seed default city. The "cities" table might not exist yet.',
         errorMessage,
       );
     }
   }
 
-  async findAllActive(): Promise<Partial<City>[]> {
-    return this.cityRepository.find({
-      select: ['id', 'name', 'logoUrl'],
+  async findAllActive(): Promise<
+    { id: string; name: string; officialName: string; logoUrl?: string }[]
+  > {
+    const cities = await this.cityRepository.find({
+      select: ['id', 'name', 'logoUrl', 'officialName'],
     });
+    return cities.map((city) => ({
+      id: city.id,
+      name: city.name,
+      officialName: resolveOfficialName(city),
+      logoUrl: city.logoUrl,
+    }));
   }
 
   async getCityConfig(cityId: string): Promise<CityConfig> {
@@ -198,6 +237,8 @@ export class CityConfigService implements OnModuleInit {
       theme: {
         primaryColor: city.primaryColor,
         secondaryColor: city.secondaryColor,
+        backgroundColorLight: city.backgroundColorLight || undefined,
+        backgroundColorDark: city.backgroundColorDark || undefined,
         useGradient: city.useGradient,
         logoUrl: city.logoUrl,
       },
@@ -205,7 +246,29 @@ export class CityConfigService implements OnModuleInit {
       usefulNumbers: city.usefulNumbers || [],
       usefulLinks: city.usefulLinks || [],
       wasteConfig: city.wasteConfig || { services: [] },
+      isTransportFeatureAllowed: !!city.isTransportFeatureAllowed,
+      isTransportFeatureEnabled: !!city.isTransportFeatureEnabled,
+      associations: city.associations ?? [],
+      publicProfile: city.publicProfile ?? undefined,
     };
+  }
+
+  async getCityEntity(cityId: string): Promise<City> {
+    const city = await this.cityRepository.findOneBy({ id: cityId });
+    if (!city) {
+      throw new NotFoundException('Ville introuvable');
+    }
+    return city;
+  }
+
+  async assertTransportAccess(cityId: string): Promise<City> {
+    const city = await this.getCityEntity(cityId);
+    if (!city.isTransportFeatureAllowed || !city.isTransportFeatureEnabled) {
+      throw new ForbiddenException(
+        'Le module transports en commun est désactivé pour cette commune',
+      );
+    }
+    return city;
   }
 
   async isFeatureEnabled(cityId: string, featureName: string): Promise<boolean> {
@@ -264,20 +327,13 @@ export class CityConfigService implements OnModuleInit {
       take: 30,
     });
 
-    const pendingTickets = await this.contactTicketRepository
-      .createQueryBuilder('ticket')
-      .where('ticket.tenant_id = :cityId', { cityId })
-      .andWhere('ticket.status IN (:...statuses)', { statuses: ['En attente', 'En cours'] })
-      .orderBy('ticket.updated_at', 'DESC')
-      .take(30)
-      .getMany();
+    const allTickets = await this.contactTicketsService.findPendingForTenant(cityId);
+
+    const pendingTickets = allTickets;
 
     const lastBodies = new Map<number, string>();
     for (const ticket of pendingTickets) {
-      const last = await this.contactTicketMessageRepository.findOne({
-        where: { ticketId: ticket.id },
-        order: { createdAt: 'DESC' },
-      });
+      const last = await this.contactTicketsService.findLastMessage(ticket.id);
       if (last) lastBodies.set(ticket.id, last.body);
     }
 
@@ -286,6 +342,9 @@ export class CityConfigService implements OnModuleInit {
     });
 
     const pendingContactMessagesCount = pendingTickets.length;
+    const pendingSuggestionsCount = pendingTickets.filter(
+      (t) => t.ticketType === 'suggestion',
+    ).length;
     const activeReportsCount = pendingReports.length;
     const urgentReportsCount = pendingReports.filter((r) =>
       URGENT_REPORT_CATEGORIES.includes(r.category),
@@ -294,9 +353,48 @@ export class CityConfigService implements OnModuleInit {
     const alerts = this.buildAlerts(pendingReports, pendingTickets, lastBodies);
     const urgentAlertsCount = alerts.filter((a) => a.severity === 'urgent').length;
 
+    const satisfactionSummary = await this.feedbackService.getSatisfactionSummary(cityId);
+
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const currentMonthReports = await this.reportRepository.count({
+      where: { tenantId: cityId, createdAt: LessThanOrEqual(now) },
+    });
+
+    const previousMonthReports = await this.reportRepository.count({
+      where: { tenantId: cityId, createdAt: LessThanOrEqual(previousMonthStart) },
+    });
+
+    let reportsTrend = 0;
+    if (previousMonthReports > 0) {
+      reportsTrend = Math.round(
+        ((currentMonthReports - previousMonthReports) / previousMonthReports) * 100,
+      );
+    }
+
+    const currentMonthSuggestions = await this.contactTicketsService.findPendingForTenant(cityId);
+    const currentSuggCount = currentMonthSuggestions.filter(
+      (t) => t.ticketType === 'suggestion' && t.createdAt >= currentMonthStart,
+    ).length;
+    const previousSuggCount = currentMonthSuggestions.filter(
+      (t) =>
+        t.ticketType === 'suggestion' &&
+        t.createdAt >= previousMonthStart &&
+        t.createdAt < currentMonthStart,
+    ).length;
+
+    let suggestionsTrend = 0;
+    if (previousSuggCount > 0) {
+      suggestionsTrend = Math.round(
+        ((currentSuggCount - previousSuggCount) / previousSuggCount) * 100,
+      );
+    }
+
     return {
-      satisfaction: 78,
-      satisfactionTrend: 5,
+      satisfaction: satisfactionSummary.satisfaction,
+      satisfactionTrend: satisfactionSummary.satisfactionTrend,
       citizensCount,
       activeReportsCount,
       pendingContactMessagesCount,
@@ -304,18 +402,11 @@ export class CityConfigService implements OnModuleInit {
       reportsInProgressCount,
       pendingTotalCount: activeReportsCount + pendingContactMessagesCount,
       urgentAlertsCount,
-      reportsTrend: -12,
-      suggestionsCount: pendingTickets.length,
-      suggestionsTrend: 0,
-      trendData: [
-        { name: 'Lun', satisfaction: 65 },
-        { name: 'Mar', satisfaction: 68 },
-        { name: 'Mer', satisfaction: 62 },
-        { name: 'Jeu', satisfaction: 74 },
-        { name: 'Ven', satisfaction: 79 },
-        { name: 'Sam', satisfaction: 77 },
-        { name: 'Dim', satisfaction: 84 },
-      ],
+      reportsTrend,
+      suggestionsCount: pendingSuggestionsCount,
+      suggestionsTrend,
+      trendData: satisfactionSummary.trendData,
+      ratingsCount: satisfactionSummary.ratingsCount,
       alerts,
     };
   }
@@ -330,7 +421,7 @@ export class CityConfigService implements OnModuleInit {
       throw new NotFoundException('Ville introuvable');
     }
 
-    const patch: Partial<City> = {};
+    const patch: Record<string, unknown> = {};
     if (typeof data.name === 'string') patch.name = data.name;
     if (Array.isArray(data.features)) patch.features = data.features as string[];
     if (typeof data.dataRetentionPolicy === 'string') {
@@ -343,11 +434,31 @@ export class CityConfigService implements OnModuleInit {
     if (typeof data.secondaryColor === 'string') patch.secondaryColor = data.secondaryColor;
     if (typeof data.useGradient === 'boolean') patch.useGradient = data.useGradient;
     if (typeof data.logoUrl === 'string') patch.logoUrl = data.logoUrl;
+    if (typeof data.backgroundColorLight === 'string') {
+      patch.backgroundColorLight = data.backgroundColorLight;
+    }
+    if (typeof data.backgroundColorDark === 'string') {
+      patch.backgroundColorDark = data.backgroundColorDark;
+    }
     if (Array.isArray(data.neighborhoods)) {
       patch.neighborhoods = data.neighborhoods as City['neighborhoods'];
     }
     if (data.wasteConfig && typeof data.wasteConfig === 'object') {
       patch.wasteConfig = data.wasteConfig as City['wasteConfig'];
+    }
+    if (typeof data.isTransportFeatureEnabled === 'boolean') {
+      if (data.isTransportFeatureEnabled && !city.isTransportFeatureAllowed) {
+        throw new ForbiddenException(
+          "Le module transports n'est pas inclus dans le contrat de cette commune",
+        );
+      }
+      patch.isTransportFeatureEnabled = data.isTransportFeatureEnabled;
+    }
+    if (Array.isArray(data.associations)) {
+      patch.associations = data.associations as City['associations'];
+    }
+    if (data.publicProfile && typeof data.publicProfile === 'object') {
+      patch.publicProfile = data.publicProfile as City['publicProfile'];
     }
 
     await this.cityRepository.update(cityId, patch);
@@ -362,6 +473,6 @@ export class CityConfigService implements OnModuleInit {
       });
     }
 
-    return this.cityRepository.findOneByOrFail({ id: cityId });
+    return await this.cityRepository.findOneByOrFail({ id: cityId });
   }
 }

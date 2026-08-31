@@ -25,6 +25,10 @@ export class ContactTicket {
   @Column({ length: 255 })
   subject!: string;
 
+  /** question = échange simple · suggestion = suivi type signalement */
+  @Column({ name: 'ticket_type', default: 'question' })
+  ticketType!: 'question' | 'suggestion';
+
   @Column({ default: 'En attente' })
   status!: string;
 

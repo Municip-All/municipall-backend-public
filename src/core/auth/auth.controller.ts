@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Get, Req, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { SignupDto } from './dto/signup.dto';
@@ -23,6 +24,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('signup')
   @ApiOperation({ summary: 'Register a new citizen' })
   @ApiResponse({ status: 201, description: 'User successfully registered.' })
@@ -31,6 +33,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('login')
   @ApiOperation({ summary: 'Login and get JWT token' })
   @ApiResponse({ status: 200, description: 'Login successful.' })
@@ -43,6 +46,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('backoffice/login')
   @ApiOperation({ summary: 'Login espace mairie (staff uniquement)' })
   async backofficeLogin(@Body() body: LoginDto) {

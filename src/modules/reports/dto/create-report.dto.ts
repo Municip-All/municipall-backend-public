@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class CreateReportDto {
   @ApiProperty({ description: 'Category of the report', example: 'Voirie' })
@@ -46,8 +46,14 @@ export class CreateReportDto {
   @Type(() => Number)
   lat!: number;
 
-  @ApiProperty({ description: 'Status (optional)', example: 'En attente', required: false })
+  @ApiProperty({
+    description: 'Status (optional)',
+    example: 'En attente',
+    required: false,
+    default: 'En attente',
+  })
   @IsOptional()
   @IsString()
-  status?: string;
+  @IsIn(['En attente'])
+  status?: string = 'En attente';
 }

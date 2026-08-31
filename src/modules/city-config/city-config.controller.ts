@@ -15,6 +15,7 @@ import { Public } from '../../core/decorators/public.decorator';
 import { RequirePermissions } from '../../core/decorators/require-permissions.decorator';
 import { Permission } from '../../core/auth/permissions';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UpdateCityDto } from './dto/update-city.dto';
 
 @ApiTags('city-config')
 @Controller('city-config')
@@ -75,9 +76,13 @@ export class CityConfigController {
   @ApiOperation({ summary: 'Mettre à jour la configuration ville (maire)' })
   async updateConfig(
     @Param('cityId') cityId: string,
-    @Body() data: Record<string, unknown>,
+    @Body() data: UpdateCityDto,
     @Req() req: Request & { user?: { sub: number } },
   ) {
-    return this.cityConfigService.updateCityConfig(cityId, data, req.user?.sub);
+    return this.cityConfigService.updateCityConfig(
+      cityId,
+      data as Record<string, unknown>,
+      req.user?.sub,
+    );
   }
 }

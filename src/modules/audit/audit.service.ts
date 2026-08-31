@@ -31,7 +31,7 @@ export class AuditService {
     if (options?.userId) where.userId = options.userId;
     if (options?.since) where.createdAt = MoreThanOrEqual(options.since);
 
-    return this.repository.find({
+    return await this.repository.find({
       where,
       order: { createdAt: 'DESC' },
       take: options?.limit ?? 100,
@@ -44,7 +44,7 @@ export class AuditService {
     since: Date,
     actions: string[],
   ): Promise<number> {
-    return this.repository.count({
+    return await this.repository.count({
       where: {
         tenantId,
         userId,

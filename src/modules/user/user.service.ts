@@ -1,9 +1,14 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { mergeNotificationPreferences, NotificationPreferences } from './notification-preferences';
+
+const SALT_ROUNDS = 12;
 
 @Injectable()
 export class UserService {
@@ -13,54 +18,72 @@ export class UserService {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.email = :email', { email })
+      .addSelect('user.password')
+      .getOne();
   }
 
   async findById(id: number): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return await this.userRepository.findOne({ where: { id } });
+  }
+
+  async findByIdWithPassword(id: number): Promise<User | null> {
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id = :id', { id })
+      .addSelect('user.password')
+      .getOne();
   }
 
   async updateAvatar(userId: number, avatarUrl: string): Promise<User> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
     user.avatar_url = avatarUrl;
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
-  async updateProfile(userId: number, profileData: Partial<User>): Promise<User> {
+  async updateProfile(userId: number, profileData: UpdateProfileDto): Promise<User> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
-    // Only allow updating certain fields
     if (profileData.name) user.name = profileData.name;
     if (profileData.surname) user.surname = profileData.surname;
     if (profileData.email) user.email = profileData.email;
     if (profileData.neighborhood) user.neighborhood = profileData.neighborhood;
     if (profileData.cityId) user.cityId = profileData.cityId;
 
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
   async updatePassword(
     userId: number,
-    passwordData: { current: string; new: string },
+    passwordData: { current: string; new: string; confirm: string },
   ): Promise<User> {
-    const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    const user = await this.findByIdWithPassword(userId);
+    if (!user) throw new NotFoundException('User not found');
 
-    if (user.password !== passwordData.current) {
+    if (passwordData.new !== passwordData.confirm) {
+      throw new BadRequestException(
+        'Le nouveau mot de passe et sa confirmation ne correspondent pas.',
+      );
+    }
+
+    const isMatch = await bcrypt.compare(passwordData.current, user.password);
+    if (!isMatch) {
       throw new BadRequestException('Current password incorrect');
     }
 
-    user.password = passwordData.new;
-    return this.userRepository.save(user);
+    user.password = await bcrypt.hash(passwordData.new, SALT_ROUNDS);
+    return await this.userRepository.save(user);
   }
 
   async updatePushToken(userId: number, expoPushToken: string): Promise<User> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
     user.expoPushToken = expoPushToken;
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
   async getNotificationPreferences(userId: number): Promise<NotificationPreferences> {
@@ -97,7 +120,7 @@ export class UserService {
     points: number;
   }> {
     const user = await this.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
     // Use the entityManager directly to count reports
     const reports = await this.userRepository.manager.count('Report', {
@@ -111,9 +134,9 @@ export class UserService {
     };
   }
 
-  async create(userData: Partial<User>): Promise<User> {
+  async create(userData: CreateUserDto): Promise<User> {
     const newUser = this.userRepository.create(userData);
-    return this.userRepository.save(newUser);
+    return await this.userRepository.save(newUser);
   }
 
   async deleteUser(id: number): Promise<void> {

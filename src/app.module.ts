@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { InternalServerErrorException, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -11,13 +12,14 @@ import { CityConfigModule } from './modules/city-config/city-config.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { AiEngineModule } from './modules/ai-engine/ai-engine.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { IntegrationModule } from './modules/integration/integration.module';
 import { WidgetsModule } from './modules/widgets/widgets.module';
 import { WeatherModule } from './modules/weather/weather.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ConstructionWorksModule } from './modules/construction-works/construction-works.module';
 import { EventsModule } from './modules/events/events.module';
 import { ContactMessagesModule } from './modules/contact-messages/contact-messages.module';
+import { TransportModule } from './modules/transport/transport.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 import { DatabaseModule } from './database/database.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { StaffModule } from './modules/staff/staff.module';
@@ -30,40 +32,72 @@ import { TenantGuard } from './core/guards/tenant.guard';
     DatabaseModule,
     AuditModule,
     StaffModule,
-    ConfigModule.forRoot({ isGlobal: true }),
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: (config: Record<string, unknown>) => {
+        const required = [
+          'JWT_SECRET',
+          'DATABASE_HOST',
+          'DATABASE_PASSWORD',
+          'DATABASE_NAME',
+          'REDIS_HOST',
+        ];
+        const missing = required.filter((key) => !config[key]);
+        if (missing.length > 0) {
+          throw new InternalServerErrorException(
+            `Missing required environment variables: ${missing.join(', ')}`,
+          );
+        }
+        return config;
       },
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: parseInt(process.env.DATABASE_PORT || '5432'),
-      username: process.env.DATABASE_USER || 'postgres',
-      password: process.env.DATABASE_PASSWORD || 'password',
-      database: process.env.DATABASE_NAME || 'municipall',
-      autoLoadEntities: true,
-      // Dev : sync auto. Prod : DatabaseSchemaService (tables/colonnes manquantes uniquement).
-      synchronize: process.env.NODE_ENV !== 'production',
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST') || 'localhost',
+          port: parseInt(configService.get<string>('REDIS_PORT') || '6379'),
+        },
+      }),
+    }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const password = configService.get<string>('DATABASE_PASSWORD');
+        if (!password) {
+          throw new InternalServerErrorException('DATABASE_PASSWORD env variable is required');
+        }
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DATABASE_HOST') || 'localhost',
+          port: parseInt(configService.get<string>('DATABASE_PORT') || '5432'),
+          username: configService.get<string>('DATABASE_USER') || 'postgres',
+          password,
+          database: configService.get<string>('DATABASE_NAME') || 'municipall',
+          autoLoadEntities: true,
+          synchronize: false,
+        };
+      },
     }),
     AuthModule,
     CityConfigModule,
     ReportsModule,
     AiEngineModule,
     NotificationsModule,
-    IntegrationModule,
     WidgetsModule,
     WeatherModule,
     AdminModule,
     ConstructionWorksModule,
     EventsModule,
     ContactMessagesModule,
+    TransportModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: TenantGuard },

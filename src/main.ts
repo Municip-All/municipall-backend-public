@@ -2,42 +2,60 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 
 async function bootstrap() {
-  const jsonBodyLimit = process.env.JSON_BODY_LIMIT ?? '15mb';
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const configService = app.get(ConfigService);
+
+  const jsonBodyLimit = configService.get<string>('JSON_BODY_LIMIT') ?? '15mb';
   app.useBodyParser('json', { limit: jsonBodyLimit });
   app.useBodyParser('urlencoded', { limit: jsonBodyLimit, extended: true });
 
-  // Enable CORS for mobile app and web dashboard access
+  const corsOriginsEnv = configService.get<string>('CORS_ORIGINS');
+  const nodeEnv = configService.get<string>('NODE_ENV');
+  if (nodeEnv === 'production' && !corsOriginsEnv) {
+    throw new InternalServerErrorException('CORS_ORIGINS env variable is required in production');
+  }
+  const allowedOrigins = (corsOriginsEnv || 'http://localhost:3000,http://localhost:3002')
+    .split(',')
+    .map((s) => s.trim());
   app.enableCors({
-    origin: '*',
+    origin: allowedOrigins.length === 1 && allowedOrigins[0] === '*' ? '*' : allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Accept, Authorization, x-tenant-id, x-platform-admin-key',
+    credentials: true,
   });
 
-  // Global prefixes and pipes
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
-  // Swagger Configuration
-  const config = new DocumentBuilder()
-    .setTitle("Municip'All API")
-    .setDescription('Robust backend for civic-tech platform')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  if (nodeEnv !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle("Municip'All API")
+      .setDescription('Robust backend for civic-tech platform')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+  }
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/api/v1`);
-  console.log(`Swagger documentation: http://localhost:${port}/docs`);
+  const port = configService.get<string>('PORT') || 3000;
+  const host = configService.get<string>('HOST') || '0.0.0.0';
+  app.use(helmet());
+  await app.listen(port, host);
+  logger.log(`Application is running on: http://${host}:${port}/api/v1`);
+  if (nodeEnv !== 'production') {
+    logger.log(`Swagger documentation: http://${host}:${port}/docs`);
+  }
 }
 
 bootstrap().catch((err) => {
-  console.error('Error during NestJS bootstrap', err);
+  const logger = new Logger('Bootstrap');
+  logger.error('Error during NestJS bootstrap', err);
   process.exit(1);
 });

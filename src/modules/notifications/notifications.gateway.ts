@@ -3,20 +3,70 @@ import {
   WebSocketServer,
   SubscribeMessage,
   MessageBody,
+  ConnectedSocket,
+  OnGatewayConnection,
+  OnGatewayInit,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { Logger } from '@nestjs/common';
 
-@WebSocketGateway({ cors: true })
-export class NotificationsGateway {
+function getWsAllowedOrigins(): string[] | '*' {
+  const raw = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3002';
+  const origins = raw.split(',').map((s) => s.trim());
+  return origins.length === 1 && origins[0] === '*' ? '*' : origins;
+}
+
+@WebSocketGateway({
+  cors: {
+    origin: getWsAllowedOrigins(),
+    credentials: true,
+  },
+})
+export class NotificationsGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   server: Server;
 
-  @SubscribeMessage('subscribe-to-city')
-  handleSubscribeToCity(@MessageBody() _cityId: string) {
-    // Logic to join a room for real-time city updates
+  private readonly logger = new Logger(NotificationsGateway.name);
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  afterInit() {
+    this.logger.log('NotificationsGateway initialized');
   }
 
-  sendStatusUpdate(cityId: string, data: any) {
+  async handleConnection(client: Socket) {
+    const rawAuth: string | undefined =
+      (client.handshake.auth?.token as string | undefined) ??
+      client.handshake.headers?.authorization;
+
+    const token = rawAuth?.startsWith('Bearer ') ? rawAuth.slice(7) : rawAuth;
+
+    if (!token) {
+      this.logger.warn(`WebSocket client ${client.id} disconnected: no token provided`);
+      client.disconnect(true);
+      return;
+    }
+
+    try {
+      const secret = this.configService.get<string>('JWT_SECRET');
+      await this.jwtService.verifyAsync(token, { secret });
+    } catch {
+      this.logger.warn(`WebSocket client ${client.id} disconnected: invalid token`);
+      client.disconnect(true);
+    }
+  }
+
+  @SubscribeMessage('subscribe-to-city')
+  handleSubscribeToCity(@MessageBody() cityId: string, @ConnectedSocket() client: Socket) {
+    void client.join(cityId);
+  }
+
+  sendStatusUpdate(cityId: string, data: unknown) {
     this.server.to(cityId).emit('status-update', data);
   }
 }

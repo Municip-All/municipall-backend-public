@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 interface TableSchemaRow {
@@ -16,6 +21,8 @@ interface CountRow {
 
 @Injectable()
 export class DatabaseService {
+  private readonly logger = new Logger(DatabaseService.name);
+
   constructor(private readonly dataSource: DataSource) {}
 
   async getTables(): Promise<string[]> {
@@ -31,7 +38,7 @@ export class DatabaseService {
       const result = (await this.dataSource.query(query)) as unknown as TableSchemaRow[];
       return result.map((row: TableSchemaRow) => row.table_name);
     } catch (error) {
-      console.error('Error fetching tables:', error);
+      this.logger.error('Error fetching tables:', error);
       throw new InternalServerErrorException('Failed to fetch tables');
     }
   }
@@ -40,7 +47,7 @@ export class DatabaseService {
     try {
       // Basic protection against SQL injection on table name
       if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
-        throw new Error('Invalid table name');
+        throw new BadRequestException('Invalid table name');
       }
 
       // Fetch columns
@@ -75,20 +82,53 @@ export class DatabaseService {
         total,
       };
     } catch (error) {
-      console.error(`Error fetching data for table ${tableName}:`, error);
+      this.logger.error(`Error fetching data for table ${tableName}:`, error);
       throw new InternalServerErrorException(`Failed to fetch data for table ${tableName}`);
     }
   }
 
   async executeQuery(query: string): Promise<Record<string, unknown>[] | { error: string }> {
     try {
-      // Execute raw query (DANGEROUS: allows anything)
+      const statements = query
+        .split(';')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      if (statements.length !== 1) {
+        return { error: 'Seules les requêtes SELECT simples sont autorisées.' };
+      }
+
+      const upper = statements[0].toUpperCase();
+      if (!upper.startsWith('SELECT')) {
+        return { error: 'Seules les requêtes SELECT sont autorisées.' };
+      }
+
+      const FORBIDDEN = [
+        'DROP',
+        'DELETE',
+        'INSERT',
+        'UPDATE',
+        'ALTER',
+        'CREATE',
+        'TRUNCATE',
+        'GRANT',
+        'REVOKE',
+        'COPY',
+        'VACUUM',
+        'REINDEX',
+        'CLUSTER',
+      ];
+      for (const kw of FORBIDDEN) {
+        if (upper.includes(kw)) {
+          return { error: `Opération interdite : ${kw}. Seuls les SELECT sont autorisés.` };
+        }
+      }
+
       const result = (await this.dataSource.query(query)) as unknown as Record<string, unknown>[];
       return result;
     } catch (error) {
-      console.error('Error executing query:', error);
+      this.logger.error('Error executing query:', error);
       const err = error as Error;
-      // Return error to be displayed in UI instead of crashing
       return { error: err.message || 'Query execution failed' };
     }
   }

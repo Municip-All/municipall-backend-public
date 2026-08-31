@@ -36,14 +36,39 @@ export class Report {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  // PostGIS geometry for report location
-  @Index({ spatial: true })
-  @Column({
-    type: 'geometry',
-    spatialFeatureType: 'Point',
-    srid: 4326,
-  })
-  location!: any;
+  // --- Champs IA / Pipeline enrichissement ---
+
+  @Column({ name: 'sentiment_score', type: 'float', nullable: true })
+  sentimentScore?: number;
+
+  @Column({ name: 'ai_confidence', type: 'float', nullable: true })
+  aiConfidence?: number;
+
+  @Column({ name: 'is_spam', default: false })
+  isSpam?: boolean;
+
+  @Column({ name: 'duplicate_of_id', nullable: true })
+  duplicateOfId?: number;
+
+  @Column({ name: 'municipal_service', nullable: true })
+  municipalService?: string;
+
+  @Column({ name: 'ai_category', nullable: true })
+  aiCategory?: string;
+
+  @Column({ name: 'ai_processed', default: false })
+  aiProcessed?: boolean;
+
+  // NOTE: le champ `embedding` vector(384) est géré EXCLUSIVEMENT par le
+  // service IA (pipeline Python/psycopg + pgvector). Il n'est PAS mappé
+  // dans TypeORM pour éviter les conflits de type.
+
+  // Position (sans PostGIS – colonnes classiques)
+  @Column({ type: 'double precision', nullable: true })
+  lat?: number;
+
+  @Column({ type: 'double precision', nullable: true })
+  lon?: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
