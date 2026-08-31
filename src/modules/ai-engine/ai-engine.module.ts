@@ -16,6 +16,7 @@ import { AiEnrichmentProcessor, AI_ENRICHMENT_QUEUE } from './ai-enrichment.proc
     }),
   ],
   providers: [AiEngineService, AiEnrichmentProcessor],
-  exports: [AiEngineService],
+  // ReportsModule injects @InjectQueue(AI_ENRICHMENT_QUEUE) — export BullModule so the queue is visible there.
+  exports: [AiEngineService, BullModule],
 })
 export class AiEngineModule {}
