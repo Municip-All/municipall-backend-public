@@ -19,11 +19,32 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY_PROD}
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
       IDFM_API_KEY: ${IDFM_API_KEY}
+      IA_BASE_URL: http://ia-prod:8000
     ports:
       - '3000:3000'
     networks:
       - default
       - proxy-bridge
+    depends_on:
+      - postgres-prod
+      - redis-prod
+      - ia-prod
+
+  ia-prod:
+    image: ghcr.io/municip-all/municipall-backend/ia:prod
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${DATABASE_USER_PROD}:${DATABASE_PASSWORD_PROD}@postgres-prod:5432/${DATABASE_NAME_PROD}
+      REDIS_HOST: redis-prod
+      REDIS_PORT: 6379
+      LITELLM_API_KEY: ${LITELLM_API_KEY_PROD:-}
+      LITELLM_API_BASE: ${LITELLM_API_BASE_PROD:-}
+      LITELLM_MODEL: ${LITELLM_MODEL_PROD:-openai/glm-53-flash}
+      LITELLM_TIMEOUT_S: ${LITELLM_TIMEOUT_S_PROD:-120}
+    expose:
+      - 8000
+    networks:
+      - default
     depends_on:
       - postgres-prod
       - redis-prod
