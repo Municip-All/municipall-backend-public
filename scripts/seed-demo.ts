@@ -13,6 +13,7 @@
  */
 
 import { DataSource, In, Like } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from '../src/modules/user/user.entity';
 import { City } from '../src/modules/city-config/entities/city.entity';
 import { Report } from '../src/modules/reports/entities/report.entity';
@@ -326,6 +327,7 @@ async function insertFeedback(
 
 async function seedUsers(ds: DataSource) {
   const repo = ds.getRepository(User);
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const staffByEmail: Record<string, number> = {};
   const agentIds: number[] = [];
   const citizenIds: number[] = [];
@@ -336,7 +338,7 @@ async function seedUsers(ds: DataSource) {
       name: staff.name,
       surname: staff.surname,
       role: staff.role,
-      password: DEMO_PASSWORD,
+      password: passwordHash,
       cityId: DEMO_CITY_ID,
       points: 0,
     });
@@ -353,7 +355,7 @@ async function seedUsers(ds: DataSource) {
       name: c.name,
       surname: c.surname,
       role: 'citizen',
-      password: DEMO_PASSWORD,
+      password: passwordHash,
       cityId: DEMO_CITY_ID,
       points: c.points,
       neighborhood: c.neighborhood,
