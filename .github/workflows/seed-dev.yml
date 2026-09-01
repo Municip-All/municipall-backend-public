@@ -36,4 +36,4 @@ jobs:
               docker compose -f docker-compose.dev.yml logs --tail=80 backend-dev || true
               exit 1
             fi
-            docker compose -f docker-compose.dev.yml exec -T backend-dev npm run seed:demo
+            docker compose -f docker-compose.dev.yml exec -T backend-dev sh -c "npm install --no-save ts-node tsconfig-paths typescript && npm run seed:demo"
