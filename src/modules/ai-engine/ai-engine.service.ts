@@ -21,6 +21,14 @@ export interface AiEnrichmentResult {
   reply?: string;
 }
 
+export interface AiCitoyenChatResult {
+  reply: string;
+  category: string;
+  municipal_service: string;
+  sentiment_score: number;
+  reassured: boolean;
+}
+
 @Injectable()
 export class AiEngineService {
   private readonly logger = new Logger(AiEngineService.name);
@@ -64,15 +72,16 @@ export class AiEngineService {
   async chatCitoyen(
     user_id: string,
     message: string,
-  ): Promise<{ reply: string; category: string; sentiment_score: number } | null> {
+    tenant_id?: string,
+  ): Promise<AiCitoyenChatResult | null> {
     try {
       const res = await fetch(`${this.baseUrl}/reporting/chat/citoyen`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, message }),
+        body: JSON.stringify({ user_id, message, ...(tenant_id ? { tenant_id } : {}) }),
       });
       if (!res.ok) return null;
-      return (await res.json()) as { reply: string; category: string; sentiment_score: number };
+      return (await res.json()) as AiCitoyenChatResult;
     } catch (err) {
       this.logger.error(`IA chat/citoyen unreachable: ${(err as Error).message}`);
       return null;
