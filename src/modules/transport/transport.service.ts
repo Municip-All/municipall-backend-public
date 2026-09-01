@@ -97,6 +97,99 @@ export class TransportService {
     };
   }
 
+  private shouldUseDemoFallback(): boolean {
+    const forced = this.configService.get<string>('IDFM_DEMO_FALLBACK');
+    if (forced === 'true') return true;
+    if (forced === 'false') return false;
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  private demoFallback(): TransportDisruptionsResponseDto {
+    this.logger.warn('Transport : fallback démo IDFM utilisé');
+    return {
+      lines: [
+        {
+          lineId: 'demo-metro-7',
+          lineName: 'Métro 7',
+          mode: 'metro',
+          status: 'disrupted',
+          messages: [
+            'Trafic interrompu entre Maison Blanche et Villejuif Louis Aragon en raison de travaux de modernisation.',
+          ],
+        },
+        {
+          lineId: 'demo-tram-t3a',
+          lineName: 'Tram T3a',
+          mode: 'tram',
+          status: 'disrupted',
+          messages: ['Trafic ralenti sur l’ensemble de la ligne, perturbations à prévoir.'],
+        },
+        {
+          lineId: 'demo-bus-47',
+          lineName: 'Bus 47',
+          mode: 'bus',
+          status: 'disrupted',
+          messages: ['Itinéraire dévié : arrêts non desservis avenue de Fontainebleau.'],
+        },
+        {
+          lineId: 'demo-bus-185',
+          lineName: 'Bus 185',
+          mode: 'bus',
+          status: 'normal',
+          messages: [],
+        },
+      ],
+      stops: [
+        {
+          stopId: 'demo-stop-1',
+          name: 'Porte d’Italie',
+          lat: 48.8178,
+          lon: 2.3599,
+          modes: ['metro', 'bus'],
+          status: 'disrupted',
+          messages: ['Métro 7 : trafic interrompu.'],
+        },
+        {
+          stopId: 'demo-stop-2',
+          name: 'Le Kremlin-Bicêtre',
+          lat: 48.812,
+          lon: 2.359,
+          modes: ['metro', 'bus'],
+          status: 'disrupted',
+          messages: ['Métro 7 : trafic interrompu.'],
+        },
+        {
+          stopId: 'demo-stop-3',
+          name: 'Hôpital Kremlin-Bicêtre',
+          lat: 48.8105,
+          lon: 2.3641,
+          modes: ['bus', 'tram'],
+          status: 'disrupted',
+          messages: ['Bus 47 : itinéraire dévié.'],
+        },
+        {
+          stopId: 'demo-stop-4',
+          name: 'Général Leclerc',
+          lat: 48.8148,
+          lon: 2.3552,
+          modes: ['bus'],
+          status: 'normal',
+          messages: [],
+        },
+        {
+          stopId: 'demo-stop-5',
+          name: 'École de Mines',
+          lat: 48.8162,
+          lon: 2.3631,
+          modes: ['bus'],
+          status: 'normal',
+          messages: [],
+        },
+      ],
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
   private handlePrimError(status: number, context: string): never {
     this.logger.warn(`PRIM ${status} ${context}`);
     if (status === 401 || status === 403) {
@@ -262,6 +355,10 @@ export class TransportService {
         }),
       ]);
     } catch (err) {
+      if (this.shouldUseDemoFallback()) {
+        this.logger.warn(`PRIM transport fetch failed, fallback démo: ${String(err)}`);
+        return this.demoFallback();
+      }
       if (err instanceof BadGatewayException || err instanceof ServiceUnavailableException) {
         throw err;
       }

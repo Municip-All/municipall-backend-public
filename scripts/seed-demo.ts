@@ -749,7 +749,7 @@ async function seedConstruction(ds: DataSource) {
 
     await ds.query(
       `
-      INSERT INTO construction_works ("tenantId", title, description, "locationName", status, "impactType", "startDate", "endDate", coordinates, "createdAt", "updatedAt")
+      INSERT INTO construction_works ("tenantId", title, description, "locationName", status, "impactType", "startDate", "endDate", coordinates, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), NOW(), NOW())
       `,
       [

@@ -1,0 +1,19 @@
+name: Ops — IA logs (VPS prod)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump ia-prod logs
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker compose -f ~/municipall/prod/docker-compose.prod.yml ps
+            echo "== ia-prod logs =="
+            docker compose -f ~/municipall/prod/docker-compose.prod.yml logs --tail=60 ia-prod

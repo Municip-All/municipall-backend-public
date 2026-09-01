@@ -39,24 +39,27 @@ export class AiEnrichmentProcessor extends WorkerHost {
     }
 
     try {
+      const duplicateOfId = aiResult.duplicate_of_id ?? null;
+      const hasDuplicate = duplicateOfId !== null;
       await this.dataSource.query(
         `UPDATE reports SET
           category = $1, ai_category = $1, municipal_service = $2,
           sentiment_score = $3, ai_confidence = $4, is_spam = $5,
-          duplicate_of_id = $6, ai_processed = TRUE,
+          duplicate_of_id = $6::int, ai_processed = TRUE,
           status = CASE
             WHEN $5 = TRUE THEN 'Rejeté'
-            WHEN $6 IS NOT NULL THEN 'Doublon'
+            WHEN $7 = TRUE THEN 'Doublon'
             ELSE status
           END
-        WHERE id = $7 AND tenant_id = $8`,
+        WHERE id = $8 AND tenant_id = $9`,
         [
           aiResult.category,
           aiResult.municipal_service,
           aiResult.sentiment_score,
           aiResult.ai_confidence,
           aiResult.is_spam,
-          aiResult.duplicate_of_id ?? null,
+          duplicateOfId,
+          hasDuplicate,
           report_id,
           tenant_id,
         ],

@@ -1,0 +1,57 @@
+name: Ops — IA live tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  live-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Agent chat tenant isolation + citoyen smoke test
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "===== image IA en cours ====="
+            docker inspect prod-ia-prod-1 --format '{{.Config.Image}} | started {{.State.StartedAt}}'
+            echo "===== test agent : comptages (tenant le-kremlin-bicetre) ====="
+            docker exec -i prod-ia-prod-1 python - <<'PY'
+            import json, urllib.request
+
+            def ask(question, tenant):
+                body = json.dumps({"question": question, "tenant_id": tenant}).encode()
+                req = urllib.request.Request(
+                    "http://localhost:8000/reporting/chat/agent",
+                    data=body,
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    return json.loads(r.read())
+
+            r1 = ask("Combien de signalements par catégorie ce mois-ci ?", "le-kremlin-bicetre")
+            print("Q1 tools:", r1.get("tools_used"), "| fallback:", r1.get("fallback"))
+            print("A1:", (r1.get("answer") or "")[:300])
+            r2 = ask("Quels sont les 3 problèmes les plus urgents cette semaine ?", "le-kremlin-bicetre")
+            print("Q2 tools:", r2.get("tools_used"), "| fallback:", r2.get("fallback"))
+            print("A2:", (r2.get("answer") or "")[:300])
+            r3 = ask("Liste les 10 derniers signalements en attente", "tenant-inexistant-test")
+            print("Q3 tools:", r3.get("tools_used"), "| fallback:", r3.get("fallback"))
+            print("A3:", (r3.get("answer") or "")[:200])
+            tenants = set()
+            for trace in r3.get("analyses", []):
+                result = trace.get("result")
+                if isinstance(result, list):
+                    for row in result:
+                        if isinstance(row, dict) and row.get("tenant_id"):
+                            tenants.add(row["tenant_id"])
+            print("T3 tenants vus par l'agent:", tenants or "aucun (isolement OK)")
+            PY
+            echo "===== test citoyen via proxy NestJS local ====="
+            curl -s -X POST http://localhost:3000/api/v1/ai/chat/citoyen \
+              -H 'Content-Type: application/json' \
+              -H 'x-tenant-id: le-kremlin-bicetre' \
+              -d '{"user_id":"42","message":"Quels sont les horaires de la mairie ?"}' \
+              | head -c 400
+            echo ""

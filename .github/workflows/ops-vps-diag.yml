@@ -1,0 +1,22 @@
+name: Ops — VPS diagnostics
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Container status and logs
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "===== docker ps ====="
+            docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+            echo "===== ia-prod logs (tail 40) ====="
+            docker logs --tail 40 prod-ia-prod-1 2>&1
+            echo "===== backend logs: IA-related (tail 30) ====="
+            docker logs --tail 200 prod-backend-prod-1 2>&1 | grep -iE "ia|chat|error" | tail -30
