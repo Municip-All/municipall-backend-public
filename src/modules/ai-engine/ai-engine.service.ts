@@ -29,6 +29,14 @@ export interface AiCitoyenChatResult {
   reassured: boolean;
 }
 
+export interface AiAgentChatResult {
+  answer: string;
+  top_reports: unknown[];
+  analyses: unknown[];
+  tools_used: string[];
+  fallback: boolean;
+}
+
 @Injectable()
 export class AiEngineService {
   private readonly logger = new Logger(AiEngineService.name);
@@ -84,6 +92,24 @@ export class AiEngineService {
       return (await res.json()) as AiCitoyenChatResult;
     } catch (err) {
       this.logger.error(`IA chat/citoyen unreachable: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Agent de mairie via l'IA.
+   */
+  async chatAgent(question: string, tenant_id?: string): Promise<AiAgentChatResult | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/reporting/chat/agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, tenant_id: tenant_id ?? 'ia-pipeline' }),
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as AiAgentChatResult;
+    } catch (err) {
+      this.logger.error(`IA chat/agent unreachable: ${(err as Error).message}`);
       return null;
     }
   }
