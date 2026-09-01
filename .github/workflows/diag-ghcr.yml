@@ -1,0 +1,26 @@
+name: GHCR access diagnostics
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ghcr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try pulling IA image manifest
+        run: |
+          if docker manifest inspect ghcr.io/municip-all/municipale-ia-private/ia:latest > /dev/null 2>&1; then
+            echo "IA IMAGE PULL: OK"
+          else
+            echo "IA IMAGE PULL: DENIED"
+          fi
