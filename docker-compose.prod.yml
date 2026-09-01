@@ -31,7 +31,7 @@ services:
       - ia-prod
 
   ia-prod:
-    image: ghcr.io/municip-all/municipale-ia-private/ia:latest
+    image: ghcr.io/municip-all/municipall-backend/ia:prod
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${DATABASE_USER_PROD}:${DATABASE_PASSWORD_PROD}@postgres-prod:5432/${DATABASE_NAME_PROD}
