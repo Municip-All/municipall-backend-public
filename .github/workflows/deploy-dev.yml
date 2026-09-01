@@ -96,6 +96,10 @@ jobs:
             OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
             IDFM_API_KEY=${{ secrets.IDFM_API_KEY }}
             PLATFORM_ADMIN_KEY=${{ secrets.PLATFORM_ADMIN_KEY }}
+            LITELLM_API_KEY=${{ secrets.LITELLM_API_KEY_PROD }}
+            LITELLM_API_BASE=${{ secrets.LITELLM_API_BASE_PROD }}
+            LITELLM_MODEL=${{ secrets.LITELLM_MODEL_PROD }}
+            LITELLM_TIMEOUT_S=${{ secrets.LITELLM_TIMEOUT_S_PROD }}
             EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.dev.yml pull

@@ -17,6 +17,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY_DEV}
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
       IDFM_API_KEY: ${IDFM_API_KEY}
+      IA_BASE_URL: http://ia-dev:8000
     ports:
       - '3001:3001'
     volumes:
@@ -24,6 +25,26 @@ services:
     networks:
       - default
       - proxy-bridge
+    depends_on:
+      - postgres-dev
+      - redis-dev
+      - ia-dev
+
+  ia-dev:
+    image: ghcr.io/municip-all/municipall-backend/ia:prod
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${DATABASE_USER_DEV}:${DATABASE_PASSWORD_DEV}@postgres-dev:5432/${DATABASE_NAME_DEV}
+      REDIS_HOST: redis-dev
+      REDIS_PORT: '6379'
+      LITELLM_API_KEY: ${LITELLM_API_KEY:-}
+      LITELLM_API_BASE: ${LITELLM_API_BASE:-}
+      LITELLM_MODEL: ${LITELLM_MODEL:-openai/glm-53-flash}
+      LITELLM_TIMEOUT_S: ${LITELLM_TIMEOUT_S:-120}
+    expose:
+      - 8000
+    networks:
+      - default
     depends_on:
       - postgres-dev
       - redis-dev
