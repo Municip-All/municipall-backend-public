@@ -1,4 +1,4 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class AgentChatDto {
   @IsString()
@@ -6,6 +6,7 @@ export class AgentChatDto {
   @MaxLength(2000)
   question!: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(128)
   tenant_id?: string;
