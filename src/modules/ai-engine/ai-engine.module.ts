@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AiEngineService } from './ai-engine.service';
+import { AiEngineController } from './ai-engine.controller';
 import { AiEnrichmentProcessor, AI_ENRICHMENT_QUEUE } from './ai-enrichment.processor';
 
 @Module({
+  controllers: [AiEngineController],
   imports: [
     BullModule.registerQueue({
       name: AI_ENRICHMENT_QUEUE,
