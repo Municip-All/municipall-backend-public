@@ -39,8 +39,8 @@ services:
       REDIS_PORT: 6379
       LITELLM_API_KEY: ${LITELLM_API_KEY_PROD:-}
       LITELLM_API_BASE: ${LITELLM_API_BASE_PROD:-}
-      LITELLM_MODEL: ${LITELLM_MODEL_PROD:-openai/glm-53-flash}
-      LITELLM_TIMEOUT_S: ${LITELLM_TIMEOUT_S_PROD:-120}
+      LITELLM_MODEL: openai/glm-53-flash
+      LITELLM_TIMEOUT_S: '120'
     expose:
       - 8000
     networks:

@@ -37,6 +37,8 @@ jobs:
               'ALTER TABLE reports ADD COLUMN IF NOT EXISTS embedding vector(384);' \
               'CREATE INDEX IF NOT EXISTS idx_reports_embedding_hnsw ON reports USING hnsw (embedding vector_cosine_ops);' \
               | docker compose -f ~/municipall/prod/docker-compose.prod.yml exec -T postgres-prod psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME"
+            echo "== relax legacy NOT NULL on location (chat reports have no GPS) =="
+            docker compose -f ~/municipall/prod/docker-compose.prod.yml exec -T postgres-prod psql -U "$DB_USER" -d "$DB_NAME" -c "DO \$\$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reports' AND column_name='location' AND is_nullable='NO') THEN ALTER TABLE reports ALTER COLUMN location DROP NOT NULL; END IF; END \$\$;"
             echo "== verification =="
             docker compose -f ~/municipall/prod/docker-compose.prod.yml exec -T postgres-prod psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT extname FROM pg_extension WHERE extname='vector'"
             docker compose -f ~/municipall/prod/docker-compose.prod.yml exec -T postgres-prod psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT column_name FROM information_schema.columns WHERE table_name='reports' AND column_name='embedding'"
