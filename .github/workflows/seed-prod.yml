@@ -36,4 +36,4 @@ jobs:
               docker compose -f docker-compose.prod.yml logs --tail=80 backend-prod || true
               exit 1
             fi
-            docker compose -f docker-compose.prod.yml exec -T backend-prod sh -c "npm install --no-save ts-node tsconfig-paths typescript && npm run seed:demo"
+            docker compose -f docker-compose.prod.yml exec -T backend-prod sh -c "npm install --no-save ts-node typescript && npm run seed:demo"
