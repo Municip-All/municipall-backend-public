@@ -133,4 +133,5 @@ jobs:
             EOF
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml rm -sf ia-prod
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
