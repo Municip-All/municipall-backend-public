@@ -17,10 +17,6 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    if (!this.shouldEnsureSchema()) {
-      return;
-    }
-
     if (!this.dataSource.isInitialized) {
       this.logger.warn('DataSource not initialized, skipping schema ensure');
       return;
@@ -28,6 +24,12 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
 
     await this.ensurePostgis();
     await this.ensurePgvector();
+    await this.ensureCityCreatedAt();
+
+    if (!this.shouldEnsureSchema()) {
+      return;
+    }
+
     await this.ensureMissingSchema();
     await this.ensureAiColumns();
   }
@@ -61,6 +63,58 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
         'pgvector extension not available (non-fatal)',
         err instanceof Error ? err.message : err,
       );
+    }
+  }
+
+  private async ensureCityCreatedAt() {
+    const qRunner = this.dataSource.createQueryRunner();
+    try {
+      const columns: { column_name: string }[] = (await qRunner.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'cities'`,
+      )) as { column_name: string }[];
+      if (columns.some((c) => c.column_name === 'created_at')) {
+        return;
+      }
+
+      this.logger.log('Adding cities.created_at column…');
+      await qRunner.query(`
+        ALTER TABLE cities
+        ADD COLUMN IF NOT EXISTS created_at timestamptz
+      `);
+      await qRunner.query(`
+        UPDATE cities
+        SET created_at = contract_signed_at::timestamptz
+        WHERE created_at IS NULL AND contract_signed_at IS NOT NULL
+      `);
+      await qRunner.query(`
+        UPDATE cities c
+        SET created_at = sub.min_created
+        FROM (
+          SELECT "cityId", MIN(created_at) AS min_created
+          FROM "user"
+          WHERE "cityId" IS NOT NULL
+          GROUP BY "cityId"
+        ) sub
+        WHERE c.id = sub."cityId" AND c.created_at IS NULL
+      `);
+      await qRunner.query(`
+        UPDATE cities
+        SET created_at = TIMESTAMPTZ '2020-01-01 00:00:00+00'
+        WHERE created_at IS NULL
+      `);
+      await qRunner.query(`
+        ALTER TABLE cities
+        ALTER COLUMN created_at SET DEFAULT NOW(),
+        ALTER COLUMN created_at SET NOT NULL
+      `);
+      this.logger.log('cities.created_at column ensured');
+    } catch (err) {
+      this.logger.error(
+        'Failed to ensure cities.created_at',
+        err instanceof Error ? err.message : err,
+      );
+    } finally {
+      await qRunner.release();
     }
   }
 

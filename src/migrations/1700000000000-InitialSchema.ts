@@ -82,6 +82,7 @@ export class InitialSchema1700000000000 implements MigrationInterface {
       CREATE TABLE IF NOT EXISTS cities (
         id character varying PRIMARY KEY,
         name character varying NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT NOW(),
         official_name character varying,
         primary_color character varying NOT NULL,
         secondary_color character varying,
