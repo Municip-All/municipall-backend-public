@@ -7,8 +7,6 @@ import {
   Body,
   Param,
   Query,
-  HttpCode,
-  HttpStatus,
   ParseIntPipe,
   NotFoundException,
   UseGuards,
@@ -82,9 +80,9 @@ export class AdminController {
   }
 
   @Delete('users/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
   async deleteUser(@Param('id', ParseIntPipe) id: number) {
     await this.adminService.deleteUser(id);
+    return { success: true };
   }
 
   @Get('docker')
@@ -165,9 +163,9 @@ export class AdminController {
   }
 
   @Delete('cities/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
   async deleteCity(@Param('id') id: string) {
     await this.adminService.deleteCity(id);
+    return { success: true };
   }
 
   @Get('cities/stats')
@@ -253,5 +251,17 @@ export class AdminController {
       success: true,
       data: agent,
     };
+  }
+
+  @Post('invitations/:id/cancel')
+  async cancelInvitation(@Param('id', ParseIntPipe) id: number) {
+    await this.adminService.cancelInvitation(id);
+    return { success: true };
+  }
+
+  @Delete('invitations/:id')
+  async cancelInvitationDelete(@Param('id', ParseIntPipe) id: number) {
+    await this.adminService.cancelInvitation(id);
+    return { success: true };
   }
 }

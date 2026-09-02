@@ -394,6 +394,17 @@ export class AdminService {
     });
   }
 
+  async cancelInvitation(id: number): Promise<void> {
+    const invitation = await this.invitationRepository.findOneBy({ id });
+    if (!invitation) {
+      throw new NotFoundException('Invitation introuvable.');
+    }
+    if (invitation.status !== 'pending') {
+      throw new BadRequestException('Seules les invitations en attente peuvent être annulées.');
+    }
+    await this.invitationRepository.delete(id);
+  }
+
   async forceAcceptInvitation(id: number) {
     const invitation = await this.invitationRepository.findOneBy({ id });
     if (!invitation) return null;
