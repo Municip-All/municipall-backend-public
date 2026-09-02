@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ContactTicket } from './entities/contact-ticket.entity';
 import { ContactTicketMessage, TicketMessageRole } from './entities/contact-ticket-message.entity';
 import { ContactMessage } from './entities/contact-message.entity';
@@ -145,6 +145,26 @@ export class ContactTicketsService implements OnModuleInit {
       where: { ticketId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /** Dernier message par ticket — une seule requête (évite N+1 sur le tableau de bord). */
+  async findLastMessageBodiesForTickets(ticketIds: number[]): Promise<Map<number, string>> {
+    const bodies = new Map<number, string>();
+    if (ticketIds.length === 0) return bodies;
+
+    const messages = await this.messageRepository.find({
+      where: { ticketId: In(ticketIds) },
+      order: { createdAt: 'DESC' },
+      select: ['ticketId', 'body'],
+    });
+
+    for (const message of messages) {
+      if (!bodies.has(message.ticketId)) {
+        bodies.set(message.ticketId, message.body);
+      }
+    }
+
+    return bodies;
   }
 
   private toListItem(

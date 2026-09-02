@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, MoreThanOrEqual, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CitizenFeedback, FeedbackResourceType } from './entities/citizen-feedback.entity';
 import { CreateCitizenFeedbackDto } from './dto/create-citizen-feedback.dto';
 import { Report } from '../reports/entities/report.entity';
@@ -148,15 +148,16 @@ export class FeedbackService {
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const recent = await this.feedbackRepo.find({
-      where: {
-        tenantId,
-        createdAt: MoreThanOrEqual(thirtyDaysAgo),
-      },
+    const allRows = await this.feedbackRepo.find({
+      where: { tenantId },
       order: { createdAt: 'ASC' },
     });
 
-    if (recent.length === 0) {
+    const recent = allRows.filter(
+      (row) => this.toDate(row.createdAt).getTime() >= thirtyDaysAgo.getTime(),
+    );
+
+    if (allRows.length === 0) {
       return {
         satisfaction: 0,
         satisfactionTrend: 0,
@@ -165,7 +166,9 @@ export class FeedbackService {
       };
     }
 
-    const avgStars = recent.reduce((sum, r) => sum + r.stars, 0) / recent.length;
+    const sourceForAverage = recent.length > 0 ? recent : allRows;
+    const avgStars =
+      sourceForAverage.reduce((sum, r) => sum + r.stars, 0) / sourceForAverage.length;
     const satisfaction = Math.round((avgStars / 5) * 100);
 
     const sevenDaysAgo = new Date(now);
@@ -173,10 +176,13 @@ export class FeedbackService {
     const fourteenDaysAgo = new Date(now);
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-    const lastWeek = recent.filter((r) => r.createdAt >= sevenDaysAgo);
-    const prevWeek = recent.filter(
-      (r) => r.createdAt >= fourteenDaysAgo && r.createdAt < sevenDaysAgo,
+    const lastWeek = recent.filter(
+      (r) => this.toDate(r.createdAt).getTime() >= sevenDaysAgo.getTime(),
     );
+    const prevWeek = recent.filter((r) => {
+      const createdAt = this.toDate(r.createdAt).getTime();
+      return createdAt >= fourteenDaysAgo.getTime() && createdAt < sevenDaysAgo.getTime();
+    });
 
     let satisfactionTrend = 0;
     if (lastWeek.length > 0 && prevWeek.length > 0) {
@@ -185,12 +191,13 @@ export class FeedbackService {
       satisfactionTrend = Math.round(((lastAvg - prevAvg) / 5) * 100);
     }
 
-    const trendData = this.buildWeeklyTrend(recent);
+    const trendData =
+      recent.length > 0 ? this.buildWeeklyTrend(recent) : this.emptyTrendData();
 
     return {
       satisfaction,
       satisfactionTrend,
-      ratingsCount: recent.length,
+      ratingsCount: allRows.length,
       trendData,
     };
   }
@@ -199,10 +206,15 @@ export class FeedbackService {
     return DAY_LABELS.map((name) => ({ name, satisfaction: 0 }));
   }
 
+  private toDate(value: Date | string): Date {
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? new Date(0) : date;
+  }
+
   private buildWeeklyTrend(rows: CitizenFeedback[]): { name: string; satisfaction: number }[] {
     const buckets = new Map<string, number[]>();
     for (const row of rows) {
-      const d = row.createdAt;
+      const d = this.toDate(row.createdAt);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       if (!buckets.has(key)) buckets.set(key, []);
       buckets.get(key)!.push(row.stars);

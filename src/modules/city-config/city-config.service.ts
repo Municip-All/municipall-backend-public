@@ -17,6 +17,18 @@ import { ContactTicket } from '../contact-messages/entities/contact-ticket.entit
 
 const URGENT_REPORT_CATEGORIES = ['Voirie', 'Éclairage', 'Sécurité'];
 
+function toIsoDate(value: Date | string | null | undefined): string {
+  if (!value) return new Date(0).toISOString();
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date(0).toISOString() : date.toISOString();
+}
+
+function toDate(value: Date | string | null | undefined): Date {
+  if (!value) return new Date(0);
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date(0) : date;
+}
+
 export interface CityContactConfig {
   email?: string;
   phone?: string;
@@ -151,7 +163,7 @@ export class CityConfigService implements OnModuleInit {
         severity: urgent ? 'urgent' : 'high',
         title: `Signalement #${String(report.id).padStart(4, '0')} — ${report.category}`,
         subtitle: report.description?.slice(0, 120) || 'Aucune description',
-        createdAt: report.createdAt.toISOString(),
+        createdAt: toIsoDate(report.createdAt),
         entityId: report.id,
       };
     });
@@ -166,7 +178,7 @@ export class CityConfigService implements OnModuleInit {
         title: isSuggestion ? `Suggestion — ${ticket.subject}` : `Question — ${ticket.subject}`,
         subtitle:
           lastBody.slice(0, 120) || (isSuggestion ? 'Nouvelle suggestion' : 'Nouvelle question'),
-        createdAt: ticket.updatedAt.toISOString(),
+        createdAt: toIsoDate(ticket.updatedAt ?? ticket.createdAt),
         entityId: ticket.id,
         contactKind: isSuggestion ? 'suggestion' : 'question',
       };
@@ -317,6 +329,16 @@ export class CityConfigService implements OnModuleInit {
   }
 
   async getDashboardStats(cityId: string): Promise<CityDashboardStats> {
+    try {
+      return await this.buildDashboardStats(cityId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`getDashboardStats failed for ${cityId}: ${message}`, error);
+      throw error;
+    }
+  }
+
+  private async buildDashboardStats(cityId: string): Promise<CityDashboardStats> {
     const citizensCount = await this.userRepository.count({
       where: { cityId, role: 'citizen' },
     });
@@ -327,15 +349,11 @@ export class CityConfigService implements OnModuleInit {
       take: 30,
     });
 
-    const allTickets = await this.contactTicketsService.findPendingForTenant(cityId);
+    const pendingTickets = await this.contactTicketsService.findPendingForTenant(cityId);
 
-    const pendingTickets = allTickets;
-
-    const lastBodies = new Map<number, string>();
-    for (const ticket of pendingTickets) {
-      const last = await this.contactTicketsService.findLastMessage(ticket.id);
-      if (last) lastBodies.set(ticket.id, last.body);
-    }
+    const lastBodies = await this.contactTicketsService.findLastMessageBodiesForTickets(
+      pendingTickets.map((ticket) => ticket.id),
+    );
 
     const reportsInProgressCount = await this.reportRepository.count({
       where: { tenantId: cityId, status: 'En cours' },
@@ -374,15 +392,19 @@ export class CityConfigService implements OnModuleInit {
       );
     }
 
-    const currentMonthSuggestions = await this.contactTicketsService.findPendingForTenant(cityId);
-    const currentSuggCount = currentMonthSuggestions.filter(
-      (t) => t.ticketType === 'suggestion' && t.createdAt >= currentMonthStart,
-    ).length;
-    const previousSuggCount = currentMonthSuggestions.filter(
+    const currentSuggCount = pendingTickets.filter(
       (t) =>
-        t.ticketType === 'suggestion' &&
-        t.createdAt >= previousMonthStart &&
-        t.createdAt < currentMonthStart,
+        t.ticketType === 'suggestion' && toDate(t.createdAt).getTime() >= currentMonthStart.getTime(),
+    ).length;
+    const previousSuggCount = pendingTickets.filter(
+      (t) => {
+        const createdAt = toDate(t.createdAt).getTime();
+        return (
+          t.ticketType === 'suggestion' &&
+          createdAt >= previousMonthStart.getTime() &&
+          createdAt < currentMonthStart.getTime()
+        );
+      },
     ).length;
 
     let suggestionsTrend = 0;
