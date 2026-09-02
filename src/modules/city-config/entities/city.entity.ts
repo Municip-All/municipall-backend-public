@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryColumn } from 'typeorm';
+import { Entity, Column, PrimaryColumn, CreateDateColumn } from 'typeorm';
 
 @Entity('cities')
 export class City {
@@ -7,6 +7,9 @@ export class City {
 
   @Column()
   name!: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt!: Date;
 
   /** Nom officiel INSEE / géographique (ex. Le Kremlin-Bicêtre) — distinct du nom d'app marque blanche */
   @Column({ name: 'official_name', nullable: true })

@@ -422,7 +422,7 @@ export class AdminService {
     });
 
     const lastCities = await this.cityRepository.find({
-      order: { name: 'DESC' }, // Assuming name or add a createdAt to City
+      order: { createdAt: 'DESC' },
       take: 3,
     });
 
@@ -439,7 +439,7 @@ export class AdminService {
       ...lastCities.map((c) => ({
         type: 'city',
         text: `Nouvelle ville partenaire : ${c.name}`,
-        time: new Date(), // Mocked time if createdAt doesn't exist
+        time: c.createdAt,
         cityId: c.id,
       })),
     ];
