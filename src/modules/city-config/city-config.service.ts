@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   OnModuleInit,
@@ -333,31 +334,44 @@ export class CityConfigService implements OnModuleInit {
       return await this.buildDashboardStats(cityId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`getDashboardStats failed for ${cityId}: ${message}`, error);
-      throw error;
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`getDashboardStats failed for ${cityId}: ${message}`, stack);
+      throw new InternalServerErrorException(
+        process.env.NODE_ENV === 'production'
+          ? 'Impossible de charger les statistiques du tableau de bord'
+          : `Dashboard stats: ${message}`,
+      );
     }
   }
 
   private async buildDashboardStats(cityId: string): Promise<CityDashboardStats> {
-    const citizensCount = await this.userRepository.count({
-      where: { cityId, role: 'citizen' },
-    });
+    const [citizensCount, pendingReports, pendingTickets, reportsInProgressCount] =
+      await Promise.all([
+        this.userRepository.count({
+          where: { cityId, role: 'citizen' },
+        }),
+        this.reportRepository.find({
+          where: { tenantId: cityId, status: 'En attente' },
+          order: { createdAt: 'DESC' },
+          take: 30,
+        }),
+        this.contactTicketsService.findPendingForTenant(cityId),
+        this.reportRepository.count({
+          where: { tenantId: cityId, status: 'En cours' },
+        }),
+      ]);
 
-    const pendingReports = await this.reportRepository.find({
-      where: { tenantId: cityId, status: 'En attente' },
-      order: { createdAt: 'DESC' },
-      take: 30,
-    });
-
-    const pendingTickets = await this.contactTicketsService.findPendingForTenant(cityId);
-
-    const lastBodies = await this.contactTicketsService.findLastMessageBodiesForTickets(
-      pendingTickets.map((ticket) => ticket.id),
-    );
-
-    const reportsInProgressCount = await this.reportRepository.count({
-      where: { tenantId: cityId, status: 'En cours' },
-    });
+    let lastBodies = new Map<number, string>();
+    try {
+      lastBodies = await this.contactTicketsService.findLastMessageBodiesForTickets(
+        pendingTickets.map((ticket) => ticket.id),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `findLastMessageBodiesForTickets failed for ${cityId}: ${message}`,
+      );
+    }
 
     const pendingContactMessagesCount = pendingTickets.length;
     const pendingSuggestionsCount = pendingTickets.filter(
@@ -371,19 +385,39 @@ export class CityConfigService implements OnModuleInit {
     const alerts = this.buildAlerts(pendingReports, pendingTickets, lastBodies);
     const urgentAlertsCount = alerts.filter((a) => a.severity === 'urgent').length;
 
-    const satisfactionSummary = await this.feedbackService.getSatisfactionSummary(cityId);
+    let satisfactionSummary = {
+      satisfaction: 0,
+      satisfactionTrend: 0,
+      ratingsCount: 0,
+      trendData: [
+        { name: 'Dim', satisfaction: 0 },
+        { name: 'Lun', satisfaction: 0 },
+        { name: 'Mar', satisfaction: 0 },
+        { name: 'Mer', satisfaction: 0 },
+        { name: 'Jeu', satisfaction: 0 },
+        { name: 'Ven', satisfaction: 0 },
+        { name: 'Sam', satisfaction: 0 },
+      ],
+    };
+    try {
+      satisfactionSummary = await this.feedbackService.getSatisfactionSummary(cityId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`getSatisfactionSummary failed for ${cityId}: ${message}`);
+    }
 
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    const currentMonthReports = await this.reportRepository.count({
-      where: { tenantId: cityId, createdAt: LessThanOrEqual(now) },
-    });
-
-    const previousMonthReports = await this.reportRepository.count({
-      where: { tenantId: cityId, createdAt: LessThanOrEqual(previousMonthStart) },
-    });
+    const [currentMonthReports, previousMonthReports] = await Promise.all([
+      this.reportRepository.count({
+        where: { tenantId: cityId, createdAt: LessThanOrEqual(now) },
+      }),
+      this.reportRepository.count({
+        where: { tenantId: cityId, createdAt: LessThanOrEqual(previousMonthStart) },
+      }),
+    ]);
 
     let reportsTrend = 0;
     if (previousMonthReports > 0) {
@@ -394,18 +428,17 @@ export class CityConfigService implements OnModuleInit {
 
     const currentSuggCount = pendingTickets.filter(
       (t) =>
-        t.ticketType === 'suggestion' && toDate(t.createdAt).getTime() >= currentMonthStart.getTime(),
+        t.ticketType === 'suggestion' &&
+        toDate(t.createdAt).getTime() >= currentMonthStart.getTime(),
     ).length;
-    const previousSuggCount = pendingTickets.filter(
-      (t) => {
-        const createdAt = toDate(t.createdAt).getTime();
-        return (
-          t.ticketType === 'suggestion' &&
-          createdAt >= previousMonthStart.getTime() &&
-          createdAt < currentMonthStart.getTime()
-        );
-      },
-    ).length;
+    const previousSuggCount = pendingTickets.filter((t) => {
+      const createdAt = toDate(t.createdAt).getTime();
+      return (
+        t.ticketType === 'suggestion' &&
+        createdAt >= previousMonthStart.getTime() &&
+        createdAt < currentMonthStart.getTime()
+      );
+    }).length;
 
     let suggestionsTrend = 0;
     if (previousSuggCount > 0) {

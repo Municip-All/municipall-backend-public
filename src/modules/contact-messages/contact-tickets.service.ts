@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ContactTicket } from './entities/contact-ticket.entity';
 import { ContactTicketMessage, TicketMessageRole } from './entities/contact-ticket-message.entity';
 import { ContactMessage } from './entities/contact-message.entity';
@@ -152,16 +152,19 @@ export class ContactTicketsService implements OnModuleInit {
     const bodies = new Map<number, string>();
     if (ticketIds.length === 0) return bodies;
 
-    const messages = await this.messageRepository.find({
-      where: { ticketId: In(ticketIds) },
-      order: { createdAt: 'DESC' },
-      select: ['ticketId', 'body'],
-    });
+    // DISTINCT ON (PostgreSQL) : dernier message par ticket, sans select partiel TypeORM.
+    const rows: Array<{ ticket_id: number; body: string }> = await this.messageRepository.query(
+      `
+      SELECT DISTINCT ON (ticket_id) ticket_id, body
+      FROM contact_ticket_messages
+      WHERE ticket_id = ANY($1)
+      ORDER BY ticket_id, created_at DESC
+      `,
+      [ticketIds],
+    );
 
-    for (const message of messages) {
-      if (!bodies.has(message.ticketId)) {
-        bodies.set(message.ticketId, message.body);
-      }
+    for (const row of rows) {
+      bodies.set(Number(row.ticket_id), row.body ?? '');
     }
 
     return bodies;
