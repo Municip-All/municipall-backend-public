@@ -133,6 +133,13 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
         `ALTER TABLE reports ADD COLUMN IF NOT EXISTS municipal_service character varying`,
         `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_category character varying`,
         `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_processed boolean NOT NULL DEFAULT false`,
+        // Colonnes métier parfois absentes sur d'anciennes DB
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_resident boolean NOT NULL DEFAULT true`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS image_url text`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id integer`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS lat double precision`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS lon double precision`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT NOW()`,
       ];
       for (const q of alters) {
         try {

@@ -69,20 +69,41 @@ jobs:
           echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >>${GITHUB_ENV}
 
       - name: Copy docker-compose via SCP
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: 'docker-compose.dev.yml'
           target: '~/municipall/dev/'
+          timeout: 90s
+          command_timeout: 5m
+          overwrite: true
+        continue-on-error: true
+        id: scp
 
-      - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@master
+      - name: Retry SCP if first attempt failed
+        if: steps.scp.outcome == 'failure'
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: 'docker-compose.dev.yml'
+          target: '~/municipall/dev/'
+          timeout: 90s
+          command_timeout: 5m
+          overwrite: true
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 90s
+          command_timeout: 15m
+          script_stop: true
           script: |
             cd ~/municipall/dev
             cat > .env <<EOF

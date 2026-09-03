@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ReportsService } from './reports.service';
@@ -51,13 +52,23 @@ export class ReportsController {
     const tenantId = req.tenantId ?? 'city-1';
     const userId = req.user?.sub;
     const role = req.user?.role ?? 'citizen';
-    if (resolveReportSenderRole(role) === 'citizen') {
-      if (!userId) {
-        throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
+    try {
+      if (resolveReportSenderRole(role) === 'citizen') {
+        if (!userId) {
+          throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
+        }
+        return await this.reportsService.findByUser(tenantId, userId);
       }
-      return this.reportsService.findByUser(tenantId, userId);
+      return await this.reportsService.findAll(tenantId);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new InternalServerErrorException(
+        process.env.NODE_ENV === 'production'
+          ? 'Impossible de charger les signalements'
+          : `Reports list: ${message}`,
+      );
     }
-    return this.reportsService.findAll(tenantId);
   }
 
   @RequirePermissions(Permission.REPORTS_READ)
