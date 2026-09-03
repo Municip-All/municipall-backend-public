@@ -369,9 +369,7 @@ export class CityConfigService implements OnModuleInit {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `findLastMessageBodiesForTickets failed for ${cityId}: ${message}`,
-      );
+      this.logger.warn(`findLastMessageBodiesForTickets failed for ${cityId}: ${message}`);
     }
 
     const pendingContactMessagesCount = pendingTickets.length;

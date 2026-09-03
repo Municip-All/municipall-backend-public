@@ -152,9 +152,7 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
         }
       }
       try {
-        await qRunner.query(
-          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS embedding vector(384)`,
-        );
+        await qRunner.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS embedding vector(384)`);
       } catch (err) {
         if (!this.isBenignSchemaError(err)) {
           this.logger.warn('AI embedding column ensure skipped (pgvector?)', err);
@@ -163,12 +161,12 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
 
       // Anciens seeds écrivaient PostGIS `location` sans remplir lat/lon → carte à 0,0.
       try {
-        const cols: Array<{ column_name: string }> = await qRunner.query(
+        const cols = (await qRunner.query(
           `SELECT column_name FROM information_schema.columns
            WHERE table_schema = 'public' AND table_name = 'reports' AND column_name = 'location'`,
-        );
+        )) as Array<{ column_name: string }>;
         if (cols.length > 0) {
-          const result = await qRunner.query(`
+          await qRunner.query(`
             UPDATE reports
             SET
               lat = ST_Y(location::geometry),
@@ -176,8 +174,7 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
             WHERE location IS NOT NULL
               AND (lat IS NULL OR lon IS NULL OR (ABS(lat) < 1e-9 AND ABS(lon) < 1e-9))
           `);
-          const n = Array.isArray(result) ? result.length : result?.rowCount;
-          if (n) this.logger.log(`Backfilled lat/lon from location for ${n} report(s)`);
+          this.logger.log('Backfilled lat/lon from location when missing');
         }
       } catch (err) {
         if (!this.isBenignSchemaError(err)) {

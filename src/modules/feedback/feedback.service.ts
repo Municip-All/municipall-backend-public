@@ -191,8 +191,7 @@ export class FeedbackService {
       satisfactionTrend = Math.round(((lastAvg - prevAvg) / 5) * 100);
     }
 
-    const trendData =
-      recent.length > 0 ? this.buildWeeklyTrend(recent) : this.emptyTrendData();
+    const trendData = recent.length > 0 ? this.buildWeeklyTrend(recent) : this.emptyTrendData();
 
     return {
       satisfaction,
