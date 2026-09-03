@@ -132,6 +132,20 @@ describe('ReportsService', () => {
       expect(mockReportRepo.find).toHaveBeenCalledWith({
         where: { tenantId: 'city-1' },
         order: { createdAt: 'DESC' },
+        select: [
+          'id',
+          'tenantId',
+          'userId',
+          'category',
+          'status',
+          'isResident',
+          'imageUrl',
+          'description',
+          'lat',
+          'lon',
+          'createdAt',
+          'updatedAt',
+        ],
       });
     });
 
