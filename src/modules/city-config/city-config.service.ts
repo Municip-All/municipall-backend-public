@@ -354,6 +354,7 @@ export class CityConfigService implements OnModuleInit {
           where: { tenantId: cityId, status: 'En attente' },
           order: { createdAt: 'DESC' },
           take: 30,
+          select: ['id', 'category', 'status', 'description', 'createdAt', 'updatedAt'],
         }),
         this.contactTicketsService.findPendingForTenant(cityId),
         this.reportRepository.count({

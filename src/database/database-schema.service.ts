@@ -25,13 +25,15 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
     await this.ensurePostgis();
     await this.ensurePgvector();
     await this.ensureCityCreatedAt();
+    // Toujours (dev + prod) : ADD COLUMN IF NOT EXISTS — sinon TypeORM plante
+    // sur Report.find() (ex. dashboard-stats → sentiment_score missing).
+    await this.ensureAiColumns();
 
     if (!this.shouldEnsureSchema()) {
       return;
     }
 
     await this.ensureMissingSchema();
-    await this.ensureAiColumns();
   }
 
   private shouldEnsureSchema(): boolean {
