@@ -183,9 +183,24 @@ export class ReportsService {
   }
 
   async findAll(tenantId: string): Promise<Report[]> {
+    // select explicite : évite un 500 si colonnes IA absentes en DB (sentiment_score, …)
     return await this.reportRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
+      select: [
+        'id',
+        'tenantId',
+        'userId',
+        'category',
+        'status',
+        'isResident',
+        'imageUrl',
+        'description',
+        'lat',
+        'lon',
+        'createdAt',
+        'updatedAt',
+      ],
     });
   }
 
@@ -221,6 +236,20 @@ export class ReportsService {
       where: { tenantId, userId },
       order: { updatedAt: 'DESC' },
       take: 50,
+      select: [
+        'id',
+        'tenantId',
+        'userId',
+        'category',
+        'status',
+        'isResident',
+        'imageUrl',
+        'description',
+        'lat',
+        'lon',
+        'createdAt',
+        'updatedAt',
+      ],
     });
     return Promise.all(reports.map((report) => this.toListItem(report)));
   }
@@ -265,6 +294,20 @@ export class ReportsService {
   ): Promise<ReportDetailView> {
     const report = await this.reportRepository.findOne({
       where: { id, tenantId },
+      select: [
+        'id',
+        'tenantId',
+        'userId',
+        'category',
+        'status',
+        'isResident',
+        'imageUrl',
+        'description',
+        'lat',
+        'lon',
+        'createdAt',
+        'updatedAt',
+      ],
     });
     if (!report) {
       throw new NotFoundException('Signalement introuvable');

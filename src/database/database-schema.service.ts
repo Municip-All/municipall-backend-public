@@ -123,42 +123,17 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
   private async ensureAiColumns() {
     const qRunner = this.dataSource.createQueryRunner();
     try {
-      const columns: { column_name: string }[] = (await qRunner.query(
-        `SELECT column_name FROM information_schema.columns WHERE table_name = 'reports'`,
-      )) as { column_name: string }[];
-      const existing = new Set(columns.map((c) => c.column_name));
-      const alters: string[] = [];
-
-      if (!existing.has('sentiment_score')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS sentiment_score real`);
-      }
-      if (!existing.has('ai_confidence')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_confidence real`);
-      }
-      if (!existing.has('is_spam')) {
-        alters.push(
-          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_spam boolean NOT NULL DEFAULT false`,
-        );
-      }
-      if (!existing.has('duplicate_of_id')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_of_id integer`);
-      }
-      if (!existing.has('municipal_service')) {
-        alters.push(
-          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS municipal_service character varying`,
-        );
-      }
-      if (!existing.has('ai_category')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_category character varying`);
-      }
-      if (!existing.has('ai_processed')) {
-        alters.push(
-          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_processed boolean NOT NULL DEFAULT false`,
-        );
-      }
-      if (!existing.has('embedding')) {
-        alters.push(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS embedding vector(384)`);
-      }
+      // Toujours ADD IF NOT EXISTS (pas de check information_schema) :
+      // en dev VPS les colonnes IA manquent souvent et cassent Report.find().
+      const alters = [
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS sentiment_score real`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_confidence real`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_spam boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_of_id integer`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS municipal_service character varying`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_category character varying`,
+        `ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_processed boolean NOT NULL DEFAULT false`,
+      ];
       for (const q of alters) {
         try {
           await qRunner.query(q);
@@ -167,6 +142,15 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
           if (!this.isBenignSchemaError(err)) {
             this.logger.warn(`AI column ensure skipped: ${q.slice(0, 80)}…`, err);
           }
+        }
+      }
+      try {
+        await qRunner.query(
+          `ALTER TABLE reports ADD COLUMN IF NOT EXISTS embedding vector(384)`,
+        );
+      } catch (err) {
+        if (!this.isBenignSchemaError(err)) {
+          this.logger.warn('AI embedding column ensure skipped (pgvector?)', err);
         }
       }
     } finally {
