@@ -183,10 +183,8 @@ export class ReportsService {
   }
 
   async findAll(tenantId: string): Promise<Report[]> {
-    // Même jeu de colonnes que dashboard-stats (prouvé en prod/dev).
-    // Ne pas sélectionner is_resident / image_url / lat / lon / user_id ici :
-    // ces colonnes manquent parfois en DB et faisaient planter GET /reports
-    // alors que le tableau de bord (select réduit) fonctionnait.
+    // select explicite : évite les colonnes IA (sentiment_score, …) absentes en DB.
+    // isResident / imageUrl / lat / lon restent exposés pour la modération.
     try {
       return await this.reportRepository.find({
         where: { tenantId },
@@ -194,9 +192,14 @@ export class ReportsService {
         select: [
           'id',
           'tenantId',
+          'userId',
           'category',
           'status',
+          'isResident',
+          'imageUrl',
           'description',
+          'lat',
+          'lon',
           'createdAt',
           'updatedAt',
         ],
@@ -240,7 +243,7 @@ export class ReportsService {
     return Promise.all(reports.map((report) => this.toListItem(report)));
   }
 
-  /** Liste citoyenne — colonnes sûres uniquement (comme findAll / dashboard). */
+  /** Liste citoyenne — sans colonnes IA, avec image / coords pour l’app. */
   private async findAllForUser(tenantId: string, userId: number): Promise<Report[]> {
     try {
       return await this.reportRepository.find({
@@ -253,7 +256,11 @@ export class ReportsService {
           'userId',
           'category',
           'status',
+          'isResident',
+          'imageUrl',
           'description',
+          'lat',
+          'lon',
           'createdAt',
           'updatedAt',
         ],
