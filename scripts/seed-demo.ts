@@ -392,8 +392,8 @@ async function insertReport(
 
   const result = await ds.query(
     `
-    INSERT INTO reports (tenant_id, user_id, category, status, description, image_url, is_resident, created_at, updated_at, location)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, ST_SetSRID(ST_MakePoint($10, $11), 4326))
+    INSERT INTO reports (tenant_id, user_id, category, status, description, image_url, is_resident, created_at, updated_at, lat, lon)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING id
     `,
     [
@@ -406,8 +406,8 @@ async function insertReport(
       index % 7 !== 0,
       createdAt,
       updatedAt,
-      lon,
       lat,
+      lon,
     ],
   );
 
@@ -626,8 +626,8 @@ async function seedTimelineFeedback(
 
     const result = await ds.query(
       `
-      INSERT INTO reports (tenant_id, user_id, category, status, description, is_resident, created_at, updated_at, location)
-      VALUES ($1, $2, 'Autre', 'Résolu', $3, true, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326))
+      INSERT INTO reports (tenant_id, user_id, category, status, description, is_resident, created_at, updated_at, lat, lon)
+      VALUES ($1, $2, 'Autre', 'Résolu', $3, true, $4, $5, $6, $7)
       RETURNING id
       `,
       [
@@ -636,8 +636,8 @@ async function seedTimelineFeedback(
         `[Satisfaction] Dossier clôturé #${i + 1}`,
         daysAgo(item.daysAgo + 5),
         daysAgo(item.daysAgo),
-        lon,
         lat,
+        lon,
       ],
     );
     const reportId = Number(result[0].id);

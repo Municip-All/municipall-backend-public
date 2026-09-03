@@ -160,6 +160,30 @@ export class DatabaseSchemaService implements OnApplicationBootstrap {
           this.logger.warn('AI embedding column ensure skipped (pgvector?)', err);
         }
       }
+
+      // Anciens seeds écrivaient PostGIS `location` sans remplir lat/lon → carte à 0,0.
+      try {
+        const cols: Array<{ column_name: string }> = await qRunner.query(
+          `SELECT column_name FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'reports' AND column_name = 'location'`,
+        );
+        if (cols.length > 0) {
+          const result = await qRunner.query(`
+            UPDATE reports
+            SET
+              lat = ST_Y(location::geometry),
+              lon = ST_X(location::geometry)
+            WHERE location IS NOT NULL
+              AND (lat IS NULL OR lon IS NULL OR (ABS(lat) < 1e-9 AND ABS(lon) < 1e-9))
+          `);
+          const n = Array.isArray(result) ? result.length : result?.rowCount;
+          if (n) this.logger.log(`Backfilled lat/lon from location for ${n} report(s)`);
+        }
+      } catch (err) {
+        if (!this.isBenignSchemaError(err)) {
+          this.logger.warn('lat/lon backfill from location skipped', err);
+        }
+      }
     } finally {
       await qRunner.release();
     }
