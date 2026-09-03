@@ -22,6 +22,7 @@ describe('ReportsService', () => {
     findOneByOrFail: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    query: jest.fn(),
     createQueryBuilder: jest.fn().mockReturnValue({
       insert: jest.fn().mockReturnThis(),
       into: jest.fn().mockReturnThis(),
@@ -124,33 +125,36 @@ describe('ReportsService', () => {
 
   describe('findAll', () => {
     it('should return reports for a tenant', async () => {
-      const reports = [{ id: 1, tenantId: 'city-1', category: 'Voirie' }];
-      mockReportRepo.find.mockResolvedValue(reports);
+      mockReportRepo.query.mockResolvedValue([
+        {
+          id: 1,
+          tenant_id: 'city-1',
+          user_id: null,
+          category: 'Voirie',
+          status: 'En attente',
+          is_resident: true,
+          image_url: null,
+          description: 'Nid de poule',
+          lat: 48.8,
+          lon: 2.3,
+          created_at: new Date('2026-01-01'),
+          updated_at: new Date('2026-01-01'),
+        },
+      ]);
 
       const result = await service.findAll('city-1');
-      expect(result).toEqual(reports);
-      expect(mockReportRepo.find).toHaveBeenCalledWith({
-        where: { tenantId: 'city-1' },
-        order: { createdAt: 'DESC' },
-        select: [
-          'id',
-          'tenantId',
-          'userId',
-          'category',
-          'status',
-          'isResident',
-          'imageUrl',
-          'description',
-          'lat',
-          'lon',
-          'createdAt',
-          'updatedAt',
-        ],
-      });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(1);
+      expect(result[0].tenantId).toBe('city-1');
+      expect(result[0].category).toBe('Voirie');
+      expect(mockReportRepo.query).toHaveBeenCalledWith(
+        expect.stringContaining('FROM reports'),
+        ['city-1'],
+      );
     });
 
     it('should return empty array when no reports', async () => {
-      mockReportRepo.find.mockResolvedValue([]);
+      mockReportRepo.query.mockResolvedValue([]);
 
       const result = await service.findAll('city-1');
       expect(result).toEqual([]);

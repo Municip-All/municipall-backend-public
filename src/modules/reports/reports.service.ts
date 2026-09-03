@@ -183,25 +183,52 @@ export class ReportsService {
   }
 
   async findAll(tenantId: string): Promise<Report[]> {
-    // select explicite : évite un 500 si colonnes IA absentes en DB (sentiment_score, …)
-    return await this.reportRepository.find({
-      where: { tenantId },
-      order: { createdAt: 'DESC' },
-      select: [
-        'id',
-        'tenantId',
-        'userId',
-        'category',
-        'status',
-        'isResident',
-        'imageUrl',
-        'description',
-        'lat',
-        'lon',
-        'createdAt',
-        'updatedAt',
-      ],
-    });
+    // SQL brut : ignore les colonnes IA éventuellement absentes (sentiment_score, …)
+    // que TypeORM inclurait sinon via le mapping d'entité.
+    try {
+      const rows: Array<{
+        id: number;
+        tenant_id: string;
+        user_id: number | null;
+        category: string;
+        status: string;
+        is_resident: boolean;
+        image_url: string | null;
+        description: string | null;
+        lat: number | null;
+        lon: number | null;
+        created_at: Date;
+        updated_at: Date;
+      }> = await this.reportRepository.query(
+        `SELECT id, tenant_id, user_id, category, status, is_resident,
+                image_url, description, lat, lon, created_at, updated_at
+         FROM reports
+         WHERE tenant_id = $1
+         ORDER BY created_at DESC`,
+        [tenantId],
+      );
+
+      return rows.map((row) => {
+        const report = new Report();
+        report.id = row.id;
+        report.tenantId = row.tenant_id;
+        report.userId = row.user_id ?? undefined;
+        report.category = row.category;
+        report.status = row.status;
+        report.isResident = row.is_resident;
+        report.imageUrl = row.image_url ?? undefined;
+        report.description = row.description ?? undefined;
+        report.lat = row.lat ?? undefined;
+        report.lon = row.lon ?? undefined;
+        report.createdAt = new Date(row.created_at);
+        report.updatedAt = new Date(row.updated_at);
+        return report;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`findAll reports failed for ${tenantId}: ${message}`);
+      throw error;
+    }
   }
 
   private async toListItem(report: Report): Promise<ReportListItem> {
@@ -232,26 +259,57 @@ export class ReportsService {
   }
 
   async findByUser(tenantId: string, userId: number): Promise<ReportListItem[]> {
-    const reports = await this.reportRepository.find({
-      where: { tenantId, userId },
-      order: { updatedAt: 'DESC' },
-      take: 50,
-      select: [
-        'id',
-        'tenantId',
-        'userId',
-        'category',
-        'status',
-        'isResident',
-        'imageUrl',
-        'description',
-        'lat',
-        'lon',
-        'createdAt',
-        'updatedAt',
-      ],
-    });
+    const reports = await this.findAllForUser(tenantId, userId);
     return Promise.all(reports.map((report) => this.toListItem(report)));
+  }
+
+  /** Liste citoyenne sans colonnes IA (même stratégie que findAll). */
+  private async findAllForUser(tenantId: string, userId: number): Promise<Report[]> {
+    try {
+      const rows: Array<{
+        id: number;
+        tenant_id: string;
+        user_id: number | null;
+        category: string;
+        status: string;
+        is_resident: boolean;
+        image_url: string | null;
+        description: string | null;
+        lat: number | null;
+        lon: number | null;
+        created_at: Date;
+        updated_at: Date;
+      }> = await this.reportRepository.query(
+        `SELECT id, tenant_id, user_id, category, status, is_resident,
+                image_url, description, lat, lon, created_at, updated_at
+         FROM reports
+         WHERE tenant_id = $1 AND user_id = $2
+         ORDER BY updated_at DESC
+         LIMIT 50`,
+        [tenantId, userId],
+      );
+
+      return rows.map((row) => {
+        const report = new Report();
+        report.id = row.id;
+        report.tenantId = row.tenant_id;
+        report.userId = row.user_id ?? undefined;
+        report.category = row.category;
+        report.status = row.status;
+        report.isResident = row.is_resident;
+        report.imageUrl = row.image_url ?? undefined;
+        report.description = row.description ?? undefined;
+        report.lat = row.lat ?? undefined;
+        report.lon = row.lon ?? undefined;
+        report.createdAt = new Date(row.created_at);
+        report.updatedAt = new Date(row.updated_at);
+        return report;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`findByUser reports failed for ${tenantId}/${userId}: ${message}`);
+      throw error;
+    }
   }
 
   private async resolveSenderDisplayName(userId: number, role: ReportMessageRole): Promise<string> {
