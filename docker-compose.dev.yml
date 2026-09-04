@@ -41,6 +41,7 @@ services:
       LITELLM_API_BASE: ${LITELLM_API_BASE:-}
       LITELLM_MODEL: ${LITELLM_MODEL:-openai/glm-53-flash}
       LITELLM_TIMEOUT_S: ${LITELLM_TIMEOUT_S:-120}
+      BACKEND_URL: http://backend-dev:3001
     expose:
       - 8000
     networks:
