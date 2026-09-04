@@ -10,8 +10,8 @@ const bcryptHash = jest.fn();
 jest.mock(
   'bcrypt',
   () => ({
-    compare: (...args: unknown[]) => bcryptCompare(...args),
-    hash: (...args: unknown[]) => bcryptHash(...args),
+    compare: (...args: unknown[]) => bcryptCompare(...args) as Promise<boolean>,
+    hash: (...args: unknown[]) => bcryptHash(...args) as Promise<string>,
   }),
   { virtual: true },
 );
@@ -64,14 +64,14 @@ describe('UserService', () => {
     repo.findOne.mockResolvedValue(null);
     await expect(service.updateAvatar(1, 'u')).rejects.toThrow(NotFoundException);
     repo.findOne.mockResolvedValue({ ...baseUser });
-    repo.save.mockImplementation(async (u) => u);
+    repo.save.mockImplementation((u: User) => Promise.resolve(u));
     const result = await service.updateAvatar(1, 'http://x');
     expect(result.avatar_url).toBe('http://x');
   });
 
   it('updateProfile updates fields', async () => {
     repo.findOne.mockResolvedValue({ ...baseUser });
-    repo.save.mockImplementation(async (u) => u);
+    repo.save.mockImplementation((u: User) => Promise.resolve(u));
     const result = await service.updateProfile(1, {
       name: 'N',
       surname: 'S',
@@ -101,7 +101,7 @@ describe('UserService', () => {
 
     bcryptCompare.mockResolvedValue(true);
     bcryptHash.mockResolvedValue('newhash');
-    repo.save.mockImplementation(async (u) => u);
+    repo.save.mockImplementation((u: User) => Promise.resolve(u));
     const result = await service.updatePassword(1, {
       current: 'old',
       new: 'new',
@@ -112,13 +112,13 @@ describe('UserService', () => {
 
   it('push token / preferences / stats / create / delete', async () => {
     repo.findOne.mockResolvedValue({ ...baseUser });
-    repo.save.mockImplementation(async (u) => u);
+    repo.save.mockImplementation((u: User) => Promise.resolve(u));
     await expect(service.updatePushToken(1, 'tok')).resolves.toMatchObject({
       expoPushToken: 'tok',
     });
 
     await expect(service.getNotificationPreferences(1)).resolves.toMatchObject({
-      moderationAlerts: expect.any(Boolean),
+      moderationAlerts: expect.any(Boolean) as unknown as boolean,
     });
 
     const prefs = await service.updateNotificationPreferences(1, {

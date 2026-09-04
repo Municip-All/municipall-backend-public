@@ -67,7 +67,7 @@ describe('EventsService', () => {
       endDate: new Date('2026-01-02'),
     };
     repo.findOneBy.mockResolvedValue(event);
-    repo.save.mockImplementation(async (e) => e);
+    repo.save.mockImplementation((e: Event) => Promise.resolve(e));
     const result = await service.update(1, 'city-1', {
       title: 'New',
       startDate: '2026-02-01T00:00:00.000Z',

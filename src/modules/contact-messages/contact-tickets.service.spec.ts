@@ -1,10 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ContactTicketsService } from './contact-tickets.service';
 import { ContactTicket } from './entities/contact-ticket.entity';
 import { ContactTicketMessage } from './entities/contact-ticket-message.entity';
@@ -86,7 +82,7 @@ describe('ContactTicketsService', () => {
       };
       ticketRepo.create.mockReturnValue(ticket);
       ticketRepo.save.mockResolvedValue(ticket);
-      messageRepo.create.mockImplementation((d) => d);
+      messageRepo.create.mockImplementation((d: Partial<ContactTicketMessage>) => d);
       messageRepo.save.mockResolvedValue({});
       ticketRepo.findOne.mockResolvedValue(ticket);
       messageRepo.find.mockResolvedValue([
@@ -196,9 +192,9 @@ describe('ContactTicketsService', () => {
         ticketType: 'question',
         status: 'Clôturé',
       });
-      await expect(
-        service.reply(1, 'city-1', 2, 'agent', { body: 'x' } as never),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reply(1, 'city-1', 2, 'agent', { body: 'x' } as never)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('agent reply updates status from En attente', async () => {
@@ -215,7 +211,7 @@ describe('ContactTicketsService', () => {
       ticketRepo.findOne
         .mockResolvedValueOnce(ticket)
         .mockResolvedValueOnce({ ...ticket, status: 'En cours' });
-      messageRepo.create.mockImplementation((d) => d);
+      messageRepo.create.mockImplementation((d: Partial<ContactTicketMessage>) => d);
       messageRepo.save.mockResolvedValue({});
       ticketRepo.save.mockResolvedValue(ticket);
       messageRepo.find.mockResolvedValue([]);
@@ -263,7 +259,7 @@ describe('ContactTicketsService', () => {
         .mockResolvedValueOnce(ticket)
         .mockResolvedValueOnce({ ...ticket, status: 'Clôturé', closedAt: new Date() });
       ticketRepo.save.mockResolvedValue(ticket);
-      messageRepo.create.mockImplementation((d) => d);
+      messageRepo.create.mockImplementation((d: Partial<ContactTicketMessage>) => d);
       messageRepo.save.mockResolvedValue({});
       messageRepo.find.mockResolvedValue([]);
       userRepo.findOne.mockResolvedValue({

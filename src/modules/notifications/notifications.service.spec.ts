@@ -36,9 +36,7 @@ describe('NotificationsService', () => {
   });
 
   it('sendTargetedAlert sends to recipients', async () => {
-    qb.getMany.mockResolvedValue([
-      { id: 1, expoPushToken: 'ExponentPushToken[abc]' },
-    ]);
+    qb.getMany.mockResolvedValue([{ id: 1, expoPushToken: 'ExponentPushToken[abc]' }]);
     expoPush.sendBatch.mockResolvedValue({ sent: 1, failed: 0 });
     const result = await service.sendTargetedAlert('c1', {
       title: 'Alerte',

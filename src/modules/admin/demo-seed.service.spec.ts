@@ -5,7 +5,7 @@ import { InternalServerErrorException, ServiceUnavailableException } from '@nest
 const execFileMock = jest.fn();
 
 jest.mock('child_process', () => ({
-  execFile: (...args: unknown[]) => execFileMock(...args),
+  execFile: (...args: unknown[]) => execFileMock(...args) as void,
 }));
 
 import { DemoSeedService } from './demo-seed.service';
@@ -17,10 +17,7 @@ describe('DemoSeedService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DemoSeedService,
-        { provide: ConfigService, useValue: { get: configGet } },
-      ],
+      providers: [DemoSeedService, { provide: ConfigService, useValue: { get: configGet } }],
     }).compile();
     service = module.get(DemoSeedService);
   });

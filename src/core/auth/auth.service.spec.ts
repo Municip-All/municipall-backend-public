@@ -12,8 +12,8 @@ const bcryptHash = jest.fn();
 jest.mock(
   'bcrypt',
   () => ({
-    compare: (...args: unknown[]) => bcryptCompare(...args),
-    hash: (...args: unknown[]) => bcryptHash(...args),
+    compare: (...args: unknown[]) => bcryptCompare(...args) as Promise<boolean>,
+    hash: (...args: unknown[]) => bcryptHash(...args) as Promise<string>,
   }),
   { virtual: true },
 );

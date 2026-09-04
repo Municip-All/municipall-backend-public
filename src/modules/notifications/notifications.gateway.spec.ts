@@ -67,9 +67,10 @@ describe('NotificationsGateway', () => {
 
   it('sendStatusUpdate emits to city room', () => {
     const emit = jest.fn();
-    (gateway.server.to as jest.Mock).mockReturnValue({ emit });
+    const to = jest.fn().mockReturnValue({ emit });
+    gateway.server.to = to;
     gateway.sendStatusUpdate('city-1', { status: 'ok' });
-    expect(gateway.server.to).toHaveBeenCalledWith('city-1');
+    expect(to).toHaveBeenCalledWith('city-1');
     expect(emit).toHaveBeenCalledWith('status-update', { status: 'ok' });
   });
 });

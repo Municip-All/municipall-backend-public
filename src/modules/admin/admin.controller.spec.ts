@@ -139,7 +139,9 @@ describe('AdminController', () => {
     });
 
     adminService.updateCity.mockResolvedValue({ id: 'c1' });
-    await expect(controller.updateCity('c1', {} as never)).resolves.toMatchObject({ success: true });
+    await expect(controller.updateCity('c1', {} as never)).resolves.toMatchObject({
+      success: true,
+    });
 
     adminService.deleteCity.mockResolvedValue(undefined);
     await expect(controller.deleteCity('c1')).resolves.toEqual({ success: true });
@@ -156,9 +158,9 @@ describe('AdminController', () => {
 
   it('staff mayor/invitation and activity', async () => {
     staffService.createMayor.mockResolvedValue({ id: 1 });
-    await expect(
-      controller.createMayor('c1', { email: 'm@x.fr' } as never),
-    ).resolves.toMatchObject({ success: true });
+    await expect(controller.createMayor('c1', { email: 'm@x.fr' } as never)).resolves.toMatchObject(
+      { success: true },
+    );
 
     staffService.createInvitation.mockResolvedValue({ id: 2 });
     await expect(

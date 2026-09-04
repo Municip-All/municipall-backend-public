@@ -13,7 +13,7 @@ const bcryptHash = jest.fn();
 jest.mock(
   'bcrypt',
   () => ({
-    hash: (...args: unknown[]) => bcryptHash(...args),
+    hash: (...args: unknown[]) => bcryptHash(...args) as Promise<string>,
     compare: jest.fn(),
   }),
   { virtual: true },
@@ -78,10 +78,7 @@ describe('AdminService', () => {
 
   describe('getBusinessStats', () => {
     it('aggregates counts and satisfaction', async () => {
-      userRepo.count
-        .mockResolvedValueOnce(100)
-        .mockResolvedValueOnce(10)
-        .mockResolvedValueOnce(80);
+      userRepo.count.mockResolvedValueOnce(100).mockResolvedValueOnce(10).mockResolvedValueOnce(80);
       cityRepo.count.mockResolvedValue(5);
       feedbackService.listForMayor.mockResolvedValue([{ stars: 4 }, { stars: 5 }]);
 
@@ -149,7 +146,7 @@ describe('AdminService', () => {
     it('updates fields, normalizes role, hashes password', async () => {
       userRepo.findOne.mockResolvedValue({ ...baseUser });
       cityRepo.findOne.mockResolvedValue({ id: 'city-1' });
-      userRepo.save.mockImplementation(async (u) => u);
+      userRepo.save.mockImplementation((u: User) => Promise.resolve(u));
 
       const result = await service.updateUser(1, {
         name: ' Marie ',
@@ -214,7 +211,9 @@ describe('AdminService', () => {
     });
 
     it('findAllCities falls back then empty on errors', async () => {
-      cityRepo.find.mockRejectedValueOnce(new Error('geom')).mockRejectedValueOnce(new Error('fatal'));
+      cityRepo.find
+        .mockRejectedValueOnce(new Error('geom'))
+        .mockRejectedValueOnce(new Error('fatal'));
       await expect(service.findAllCities()).resolves.toEqual([]);
     });
 

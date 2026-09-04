@@ -2,7 +2,7 @@ import { InternalServerErrorException } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { AiEnrichmentProcessor } from './ai-enrichment.processor';
-import { AiEngineService } from './ai-engine.service';
+import { AiEngineService, AiEnrichmentPayload } from './ai-engine.service';
 
 describe('AiEnrichmentProcessor', () => {
   const enrichReport = jest.fn();
@@ -38,7 +38,7 @@ describe('AiEnrichmentProcessor', () => {
         lon: 2,
       },
       attemptsMade: 0,
-    } as Job;
+    } as Job<AiEnrichmentPayload>;
 
     await processor.process(job);
 
@@ -54,7 +54,7 @@ describe('AiEnrichmentProcessor', () => {
     const job = {
       data: { report_id: 1, tenant_id: 'c1', content: 'x' },
       attemptsMade: 0,
-    } as Job;
+    } as Job<AiEnrichmentPayload>;
     await expect(processor.process(job)).rejects.toThrow(InternalServerErrorException);
   });
 
@@ -71,7 +71,7 @@ describe('AiEnrichmentProcessor', () => {
     const job = {
       data: { report_id: 3, tenant_id: 'c1', content: 'spam' },
       attemptsMade: 1,
-    } as Job;
+    } as Job<AiEnrichmentPayload>;
     await expect(processor.process(job)).resolves.toBeUndefined();
   });
 });

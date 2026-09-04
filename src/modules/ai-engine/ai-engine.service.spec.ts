@@ -20,7 +20,7 @@ describe('AiEngineService', () => {
   it('enrichReport returns data on success', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ category: 'voirie', is_spam: false }),
+      json: () => Promise.resolve({ category: 'voirie', is_spam: false }),
     } as Response);
     await expect(
       service.enrichReport({ report_id: 1, tenant_id: 'c1', content: 'x' }),
@@ -31,7 +31,7 @@ describe('AiEngineService', () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: false,
       status: 500,
-      text: async () => 'err',
+      text: () => Promise.resolve('err'),
     } as Response);
     await expect(
       service.enrichReport({ report_id: 1, tenant_id: 'c1', content: 'x' }),
@@ -46,13 +46,13 @@ describe('AiEngineService', () => {
   it('chatCitoyen and chatAgent happy and error paths', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ reply: 'ok' }),
+      json: () => Promise.resolve({ reply: 'ok' }),
     } as Response);
     await expect(service.chatCitoyen('1', 'hi', 'c1')).resolves.toEqual({ reply: 'ok' });
 
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ answer: 'a' }),
+      json: () => Promise.resolve({ answer: 'a' }),
     } as Response);
     await expect(service.chatAgent('q')).resolves.toEqual({ answer: 'a' });
 

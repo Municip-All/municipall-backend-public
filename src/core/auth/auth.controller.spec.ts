@@ -48,9 +48,9 @@ describe('AuthController', () => {
 
   it('login throws on bad credentials', async () => {
     authService.validateUser.mockResolvedValue(null);
-    await expect(
-      controller.login({ email: 'a', password: 'b' } as never),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(controller.login({ email: 'a', password: 'b' } as never)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('login and backofficeLogin succeed', async () => {

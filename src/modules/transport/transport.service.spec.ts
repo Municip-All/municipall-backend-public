@@ -36,50 +36,52 @@ describe('TransportService', () => {
 
   it('maps successful PRIM responses', async () => {
     const service = await make({ IDFM_API_KEY: 'key', IDFM_DEMO_FALLBACK: 'false' });
-    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
-      const url = String(input);
+    jest.spyOn(global, 'fetch').mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : '';
       if (url.includes('/lines')) {
-        return {
+        return Promise.resolve({
           ok: true,
-          json: async () => ({
-            lines: [
+          json: () =>
+            Promise.resolve({
+              lines: [
+                {
+                  id: 'line-1',
+                  name: 'Métro 7',
+                  commercial_mode: { name: 'Metro' },
+                },
+                { id: 'line-2', name: 'Bus 47', commercial_mode: { name: 'Bus' } },
+              ],
+              disruptions: [
+                {
+                  messages: [{ text: '<b>Interrompu</b>' }, 'Texte'],
+                  impacted_objects: [
+                    { pt_object: { embedded_type: 'line', id: 'line-1' } },
+                    { pt_object: { embedded_type: 'stop_area', id: 'stop-1' } },
+                  ],
+                },
+              ],
+            }),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            places_nearby: [
               {
-                id: 'line-1',
-                name: 'Métro 7',
-                commercial_mode: { name: 'Metro' },
-              },
-              { id: 'line-2', name: 'Bus 47', commercial_mode: { name: 'Bus' } },
-            ],
-            disruptions: [
-              {
-                messages: [{ text: '<b>Interrompu</b>' }, 'Texte'],
-                impacted_objects: [
-                  { pt_object: { embedded_type: 'line', id: 'line-1' } },
-                  { pt_object: { embedded_type: 'stop_area', id: 'stop-1' } },
-                ],
+                embedded_type: 'stop_area',
+                id: 'stop-1',
+                name: 'Porte',
+                stop_area: {
+                  id: 'stop-1',
+                  name: 'Porte',
+                  coord: { lat: '48.8', lon: '2.3' },
+                  commercial_modes: [{ name: 'metro' }],
+                },
               },
             ],
           }),
-        } as Response;
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          places_nearby: [
-            {
-              embedded_type: 'stop_area',
-              id: 'stop-1',
-              name: 'Porte',
-              stop_area: {
-                id: 'stop-1',
-                name: 'Porte',
-                coord: { lat: '48.8', lon: '2.3' },
-                commercial_modes: [{ name: 'metro' }],
-              },
-            },
-          ],
-        }),
-      } as Response;
+      } as Response);
     });
 
     const result = await service.getDisruptionsNear(48.8, 2.3);

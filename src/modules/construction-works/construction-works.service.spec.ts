@@ -62,7 +62,7 @@ describe('ConstructionWorksService', () => {
       impactType: 'road',
     };
     repo.findOne.mockResolvedValue(work);
-    repo.save.mockImplementation(async (w) => w);
+    repo.save.mockImplementation((w: ConstructionWork) => Promise.resolve(w));
     const result = await service.update(1, 'city-1', {
       title: 't',
       description: 'd',

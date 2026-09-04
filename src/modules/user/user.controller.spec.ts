@@ -52,7 +52,10 @@ describe('UserController', () => {
     userService.updatePushToken.mockResolvedValue({});
 
     await controller.updateProfile(req as never, { name: 'n' } as never);
-    await controller.updatePassword(req as never, { current: 'a', new: 'b', confirm: 'b' } as never);
+    await controller.updatePassword(
+      req as never,
+      { current: 'a', new: 'b', confirm: 'b' } as never,
+    );
     await controller.getStats(req as never);
     await controller.getPreferences(req as never);
     await controller.updatePreferences(req as never, {} as never);

@@ -50,24 +50,17 @@ describe('ContactTicketsController', () => {
     await controller.findAllForCity({ tenantId: 'c1' } as never);
     expect(service.findAllForTenant).toHaveBeenCalledWith('c1');
 
-    await controller.findOne(
-      { tenantId: 'c1', user: { sub: 9, role: 'citizen' } } as never,
-      3,
-    );
+    await controller.findOne({ tenantId: 'c1', user: { sub: 9, role: 'citizen' } } as never, 3);
     expect(service.findById).toHaveBeenCalledWith(3, 'c1', 9, 'citizen');
 
-    await controller.reply(
-      { tenantId: 'c1', user: { sub: 9, role: 'citizen' } } as never,
-      3,
-      { body: 'hi' } as never,
-    );
+    await controller.reply({ tenantId: 'c1', user: { sub: 9, role: 'citizen' } } as never, 3, {
+      body: 'hi',
+    } as never);
     expect(service.reply).toHaveBeenCalledWith(3, 'c1', 9, 'citizen', { body: 'hi' });
 
-    await controller.updateStatus(
-      { tenantId: 'c1', user: { sub: 2 } } as never,
-      3,
-      { status: 'Clôturé' } as never,
-    );
+    await controller.updateStatus({ tenantId: 'c1', user: { sub: 2 } } as never, 3, {
+      status: 'Clôturé',
+    } as never);
     expect(service.updateStatus).toHaveBeenCalledWith(3, 'c1', 2, 'Clôturé');
 
     await controller.close({ tenantId: 'c1', user: { sub: 2 } } as never, 3);
@@ -97,10 +90,13 @@ describe('ContactMessagesLegacyController', () => {
     service.findByUser.mockResolvedValue([]);
     service.findAllForTenant.mockResolvedValue([]);
 
-    await controller.create({ tenantId: 'c1', user: { sub: 9 } } as never, {
-      subject: 'S',
-      body: 'B',
-    } as never);
+    await controller.create(
+      { tenantId: 'c1', user: { sub: 9 } } as never,
+      {
+        subject: 'S',
+        body: 'B',
+      } as never,
+    );
     expect(service.create).toHaveBeenCalledWith('c1', 9, expect.any(Object));
 
     await controller.findMine({ tenantId: 'c1', user: { sub: 9 } } as never);

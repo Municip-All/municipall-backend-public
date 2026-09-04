@@ -161,7 +161,10 @@ describe('CityConfigService', () => {
 
   describe('findByLocation', () => {
     it('queries ST_Contains', async () => {
-      const qb = { where: jest.fn().mockReturnThis(), getOne: jest.fn().mockResolvedValue({ id: 'c1' }) };
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({ id: 'c1' }),
+      };
       cityRepo.createQueryBuilder.mockReturnValue(qb);
       await expect(service.findByLocation(48.8, 2.3)).resolves.toEqual({ id: 'c1' });
       expect(qb.where).toHaveBeenCalled();

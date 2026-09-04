@@ -20,9 +20,9 @@ describe('NotificationsController', () => {
   it('sendTargeted uses tenantId from request', async () => {
     service.sendTargetedAlert.mockResolvedValue({ sent: 2 });
     const body = { title: 'Alerte', body: 'msg' } as never;
-    await expect(
-      controller.sendTargeted({ tenantId: 'c1' } as never, body),
-    ).resolves.toEqual({ sent: 2 });
+    await expect(controller.sendTargeted({ tenantId: 'c1' } as never, body)).resolves.toEqual({
+      sent: 2,
+    });
     expect(service.sendTargetedAlert).toHaveBeenCalledWith('c1', body);
   });
 

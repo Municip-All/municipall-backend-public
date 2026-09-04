@@ -119,14 +119,12 @@ describe('ReportsService', () => {
 
       const result = await service.create('city-1', dto);
       expect(result).toEqual(savedReport);
-      const inserted = values.mock.calls[0][0] as {
-        lat: number;
-        lon: number;
-        location: () => string;
-      };
-      expect(inserted.lat).toBe(48.85);
-      expect(inserted.lon).toBe(2.35);
-      expect(inserted.location()).toContain('ST_MakePoint(2.35, 48.85)');
+      type InsertedValues = { lat: number; lon: number; location: () => string };
+      const calls = values.mock.calls as [InsertedValues][];
+      const inserted = calls[0]?.[0];
+      expect(inserted?.lat).toBe(48.85);
+      expect(inserted?.lon).toBe(2.35);
+      expect(inserted?.location()).toContain('ST_MakePoint(2.35, 48.85)');
     });
   });
 
@@ -305,7 +303,7 @@ describe('ReportsService', () => {
         status: 'En attente',
         tenantId: 'city-1',
       });
-      mockMessageRepo.create.mockImplementation((d) => d);
+      mockMessageRepo.create.mockImplementation((d: Partial<ReportMessage>) => d);
       mockMessageRepo.save.mockResolvedValue({});
       mockReportRepo.save.mockResolvedValue({});
       mockReportRepo.findOne.mockResolvedValue({
@@ -351,7 +349,7 @@ describe('ReportsService', () => {
     it('updates status and audits', async () => {
       const report = { id: 1, status: 'En cours', tenantId: 'city-1' };
       mockReportRepo.findOneBy.mockResolvedValue(report);
-      mockReportRepo.save.mockImplementation(async (r) => r);
+      mockReportRepo.save.mockImplementation((r: Report) => Promise.resolve(r));
 
       const result = await service.updateStatus(1, 'Résolu', 'city-1', 2);
       expect(result.status).toBe('Résolu');

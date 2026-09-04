@@ -14,7 +14,7 @@ const bcryptHash = jest.fn();
 jest.mock(
   'bcrypt',
   () => ({
-    hash: (...args: unknown[]) => bcryptHash(...args),
+    hash: (...args: unknown[]) => bcryptHash(...args) as Promise<string>,
     compare: jest.fn(),
   }),
   { virtual: true },
@@ -160,7 +160,9 @@ describe('StaffService', () => {
         expiresAt: new Date('2026-04-01T00:00:00.000Z'),
         token: 'tok',
       };
-      invitationRepo.create.mockImplementation((d) => ({ ...d, id: 5 }));
+      invitationRepo.create.mockImplementation(
+        (d: Partial<Invitation>) => ({ ...d, id: 5 }) as Invitation,
+      );
       invitationRepo.save.mockResolvedValue(invitation);
 
       const result = await service.createInvitation('c1', 9, {
@@ -171,7 +173,7 @@ describe('StaffService', () => {
       expect(result).toMatchObject({
         id: 5,
         email: 'a@b.c',
-        acceptPath: expect.stringMatching(/^\/invite\//),
+        acceptPath: expect.stringMatching(/^\/invite\//) as unknown as string,
       });
       expect(auditService.log).toHaveBeenCalled();
     });

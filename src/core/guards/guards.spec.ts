@@ -68,17 +68,15 @@ describe('Guards', () => {
 
     it('checks role permissions', () => {
       const ctx = mockContext({ user: { role: 'mayor' } });
-      expect(
-        make([false, [Permission.REPORTS_READ]]).canActivate(ctx),
-      ).toBe(true);
+      expect(make([false, [Permission.REPORTS_READ]]).canActivate(ctx)).toBe(true);
       expect(() =>
         make([false, [Permission.PLATFORM_ADMIN]]).canActivate(
           mockContext({ user: { role: 'citizen' } }),
         ),
       ).toThrow(ForbiddenException);
-      expect(() =>
-        make([false, [Permission.REPORTS_READ]]).canActivate(mockContext({})),
-      ).toThrow(ForbiddenException);
+      expect(() => make([false, [Permission.REPORTS_READ]]).canActivate(mockContext({}))).toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -91,9 +89,9 @@ describe('Guards', () => {
     it('skips public / skipTenant / citizen / platform admin', () => {
       expect(make([true]).canActivate(mockContext({}))).toBe(true);
       expect(make([false, true]).canActivate(mockContext({}))).toBe(true);
-      expect(
-        make([false, false]).canActivate(mockContext({ user: { role: 'citizen' } })),
-      ).toBe(true);
+      expect(make([false, false]).canActivate(mockContext({ user: { role: 'citizen' } }))).toBe(
+        true,
+      );
       expect(
         make([false, false]).canActivate(mockContext({ user: { role: 'platform_admin' } })),
       ).toBe(true);
@@ -117,9 +115,7 @@ describe('Guards', () => {
         ),
       ).toThrow(ForbiddenException);
       expect(() =>
-        make([false, false]).canActivate(
-          mockContext({ user: { role: 'mayor' }, tenantId: 'c1' }),
-        ),
+        make([false, false]).canActivate(mockContext({ user: { role: 'mayor' }, tenantId: 'c1' })),
       ).toThrow(ForbiddenException);
     });
   });
@@ -129,9 +125,7 @@ describe('Guards', () => {
       const config = { get: jest.fn().mockReturnValue('secret') } as unknown as ConfigService;
       const guard = new PlatformAdminGuard(config);
       expect(
-        guard.canActivate(
-          mockContext({ headers: { 'x-platform-admin-key': 'secret' } }),
-        ),
+        guard.canActivate(mockContext({ headers: { 'x-platform-admin-key': 'secret' } })),
       ).toBe(true);
       expect(() =>
         guard.canActivate(mockContext({ headers: { 'x-platform-admin-key': 'bad' } })),

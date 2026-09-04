@@ -6,7 +6,7 @@ import { AuditLog } from './entities/audit-log.entity';
 describe('AuditService', () => {
   let service: AuditService;
   const repo = {
-    create: jest.fn((x) => x),
+    create: jest.fn((x: Partial<AuditLog>) => x),
     save: jest.fn(),
     find: jest.fn(),
     count: jest.fn(),

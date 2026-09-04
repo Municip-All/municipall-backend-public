@@ -4,14 +4,15 @@ import { UserRepository } from './user.repository';
 describe('UserRepository', () => {
   it('createUser creates and saves', async () => {
     const manager = {};
+    const createEntityManager = jest.fn().mockReturnValue(manager);
     const dataSource = {
-      createEntityManager: jest.fn().mockReturnValue(manager),
+      createEntityManager,
     } as unknown as DataSource;
 
     const repo = new UserRepository(dataSource);
     const created = { id: 1, email: 'a@b.c' };
-    jest.spyOn(repo, 'create').mockReturnValue(created as never);
-    jest.spyOn(repo, 'save').mockResolvedValue(created as never);
+    const createSpy = jest.spyOn(repo, 'create').mockReturnValue(created as never);
+    const saveSpy = jest.spyOn(repo, 'save').mockResolvedValue(created as never);
 
     const result = await repo.createUser({
       email: 'a@b.c',
@@ -20,9 +21,9 @@ describe('UserRepository', () => {
       surname: 'B',
     } as never);
 
-    expect(dataSource.createEntityManager).toHaveBeenCalled();
-    expect(repo.create).toHaveBeenCalled();
-    expect(repo.save).toHaveBeenCalledWith(created);
+    expect(createEntityManager).toHaveBeenCalled();
+    expect(createSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalledWith(created);
     expect(result).toEqual(created);
   });
 });

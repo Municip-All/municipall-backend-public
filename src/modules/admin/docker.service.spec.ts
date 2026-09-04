@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 const execMock = jest.fn();
 
 jest.mock('child_process', () => ({
-  exec: (...args: unknown[]) => execMock(...args),
+  exec: (...args: unknown[]) => execMock(...args) as void,
 }));
 
 import { DockerService } from './docker.service';
@@ -16,10 +16,7 @@ describe('DockerService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DockerService,
-        { provide: ConfigService, useValue: { get: configGet } },
-      ],
+      providers: [DockerService, { provide: ConfigService, useValue: { get: configGet } }],
     }).compile();
     service = module.get(DockerService);
   });

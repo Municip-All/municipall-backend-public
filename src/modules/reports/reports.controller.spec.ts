@@ -86,19 +86,15 @@ describe('ReportsController', () => {
     expect(service.findDetail).toHaveBeenCalledWith('c1', 1, 2, 'citizen');
 
     service.addMessage.mockResolvedValue({ id: 1 });
-    await controller.reply(
-      { tenantId: 'c1', user: { sub: 2, role: 'citizen' } } as never,
-      1,
-      { body: 'hi' } as never,
-    );
+    await controller.reply({ tenantId: 'c1', user: { sub: 2, role: 'citizen' } } as never, 1, {
+      body: 'hi',
+    } as never);
     expect(service.addMessage).toHaveBeenCalledWith('c1', 1, 2, 'hi', 'citizen');
 
     service.updateStatus.mockResolvedValue({ id: 1, status: 'Résolu' });
-    await controller.updateStatus(
-      { tenantId: 'c1', user: { sub: 2 } } as never,
-      1,
-      { status: 'Résolu' } as never,
-    );
+    await controller.updateStatus({ tenantId: 'c1', user: { sub: 2 } } as never, 1, {
+      status: 'Résolu',
+    } as never);
     expect(service.updateStatus).toHaveBeenCalledWith(1, 'Résolu', 'c1', 2);
   });
 });

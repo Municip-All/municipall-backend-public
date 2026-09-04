@@ -71,9 +71,10 @@ describe('DatabaseService', () => {
       await expect(service.executeQuery('SELECT * FROM users; DROP TABLE users')).resolves.toEqual({
         error: 'Seules les requêtes SELECT simples sont autorisées.',
       });
-      await expect(
-        service.executeQuery("SELECT pg_sleep(1); -- DROP"),
-      ).resolves.toMatchObject({ error: expect.stringContaining('Seules') });
+      const sleepResult = (await service.executeQuery('SELECT pg_sleep(1); -- DROP')) as {
+        error: string;
+      };
+      expect(sleepResult.error).toEqual(expect.stringContaining('Seules'));
       await expect(service.executeQuery('SELECT * FROM t WHERE x = DROP')).resolves.toEqual({
         error: 'Opération interdite : DROP. Seuls les SELECT sont autorisés.',
       });

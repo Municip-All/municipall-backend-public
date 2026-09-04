@@ -27,11 +27,12 @@ describe('WeatherService', () => {
     const service = await makeService('key');
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({
-        main: { temp: 18.6 },
-        weather: [{ description: 'nuageux', icon: '04d' }],
-        name: 'Paris',
-      }),
+      json: () =>
+        Promise.resolve({
+          main: { temp: 18.6 },
+          weather: [{ description: 'nuageux', icon: '04d' }],
+          name: 'Paris',
+        }),
     } as Response);
     await expect(service.getWeather(48.8, 2.3)).resolves.toEqual({
       temp: 19,
