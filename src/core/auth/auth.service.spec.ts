@@ -5,13 +5,23 @@ import { AuthService } from './auth.service';
 import { UserService } from '../../modules/user/user.service';
 import { UserRepository } from '../../modules/user/user.repository';
 import { User } from '../../modules/user/user.entity';
-import * as bcrypt from 'bcrypt';
 
-jest.mock('bcrypt');
+const bcryptCompare = jest.fn();
+const bcryptHash = jest.fn();
+
+jest.mock(
+  'bcrypt',
+  () => ({
+    compare: (...args: unknown[]) => bcryptCompare(...args),
+    hash: (...args: unknown[]) => bcryptHash(...args),
+  }),
+  { virtual: true },
+);
 
 describe('AuthService', () => {
   let service: AuthService;
   let findByEmailMock: jest.Mock;
+  let findByIdMock: jest.Mock;
   let createUserMock: jest.Mock;
   let signAsyncMock: jest.Mock;
 
@@ -31,8 +41,11 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     findByEmailMock = jest.fn();
+    findByIdMock = jest.fn();
     createUserMock = jest.fn();
     signAsyncMock = jest.fn().mockResolvedValue('jwt-token');
+    bcryptCompare.mockReset();
+    bcryptHash.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -41,7 +54,7 @@ describe('AuthService', () => {
           provide: UserService,
           useValue: {
             findByEmail: findByEmailMock,
-            findById: jest.fn(),
+            findById: findByIdMock,
           },
         },
         {
@@ -65,7 +78,7 @@ describe('AuthService', () => {
   describe('validateUser', () => {
     it('should return user when credentials are valid', async () => {
       findByEmailMock.mockResolvedValue(mockUser);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      bcryptCompare.mockResolvedValue(true);
 
       const result = await service.validateUser('test@example.com', 'password123');
       expect(result).toEqual(mockUser);
@@ -81,7 +94,7 @@ describe('AuthService', () => {
 
     it('should return null when password is incorrect', async () => {
       findByEmailMock.mockResolvedValue(mockUser);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      bcryptCompare.mockResolvedValue(false);
 
       const result = await service.validateUser('test@example.com', 'wrong-password');
       expect(result).toBeNull();
@@ -136,7 +149,7 @@ describe('AuthService', () => {
       };
       const createdUser = { ...mockUser, ...signupDto, role: 'Citoyen' };
 
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_new_password');
+      bcryptHash.mockResolvedValue('hashed_new_password');
       createUserMock.mockResolvedValue(createdUser);
 
       const result = await service.signup(signupDto);
@@ -149,6 +162,14 @@ describe('AuthService', () => {
         cityId: undefined,
       });
       expect(result.access_token).toBe('jwt-token');
+    });
+  });
+
+  describe('getMe', () => {
+    it('should return user by id', async () => {
+      findByIdMock.mockResolvedValue(mockUser);
+      await expect(service.getMe(1)).resolves.toEqual(mockUser);
+      expect(findByIdMock).toHaveBeenCalledWith(1);
     });
   });
 });

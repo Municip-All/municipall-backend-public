@@ -63,12 +63,21 @@ export class Report {
   // service IA (pipeline Python/psycopg + pgvector). Il n'est PAS mappé
   // dans TypeORM pour éviter les conflits de type.
 
-  // Position (sans PostGIS – colonnes classiques)
+  // Position classique (lecture app / API)
   @Column({ type: 'double precision', nullable: true })
   lat?: number;
 
   @Column({ type: 'double precision', nullable: true })
   lon?: number;
+
+  // PostGIS Point (NOT NULL en prod) — écrit via ST_MakePoint à la création
+  @Column({
+    type: 'geometry',
+    spatialFeatureType: 'Point',
+    srid: 4326,
+    select: false,
+  })
+  location?: unknown;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

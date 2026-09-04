@@ -117,6 +117,7 @@ export class ReportsService {
       }
     }
 
+    // `location` (PostGIS) est NOT NULL en prod : il faut le peupler en même temps que lat/lon.
     const insertResult = await this.reportRepository
       .createQueryBuilder()
       .insert()
@@ -131,6 +132,7 @@ export class ReportsService {
         isResident,
         lat,
         lon,
+        location: () => `ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)`,
       })
       .returning('id')
       .execute();
