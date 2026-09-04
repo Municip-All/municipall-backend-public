@@ -393,7 +393,7 @@ async function insertReport(
   const result = await ds.query(
     `
     INSERT INTO reports (tenant_id, user_id, category, status, description, image_url, is_resident, created_at, updated_at, location, lat, lon)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, ST_SetSRID(ST_MakePoint($10, $11), 4326), $10, $11)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, ST_SetSRID(ST_MakePoint($10, $11), 4326), $11, $10)
     RETURNING id
     `,
     [
@@ -627,7 +627,7 @@ async function seedTimelineFeedback(
     const result = await ds.query(
       `
       INSERT INTO reports (tenant_id, user_id, category, status, description, is_resident, created_at, updated_at, location, lat, lon)
-      VALUES ($1, $2, 'Autre', 'Résolu', $3, true, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326), $6, $7)
+      VALUES ($1, $2, 'Autre', 'Résolu', $3, true, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326), $7, $6)
       RETURNING id
       `,
       [
