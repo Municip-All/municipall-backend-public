@@ -25,5 +25,5 @@ jobs:
             if [ "${{ inputs.target }}" = "dev" ]; then
               docker compose -f ~/municipall/dev/docker-compose.dev.yml exec -T postgres-dev psql -U ${{ secrets.DATABASE_USER_DEV }} -d ${{ secrets.DATABASE_NAME_DEV }} -c "${{ inputs.sql }}"
             else
-              docker compose -f ~/municipall/prod/docker-compose.prod.yml exec -T postgres psql -U ${{ secrets.DATABASE_USER_PROD }} -d ${{ secrets.DATABASE_NAME_PROD }} -c "${{ inputs.sql }}"
+              docker compose -f ~/municipall/prod/docker-compose.prod.yml exec -T postgres-prod psql -U ${{ secrets.DATABASE_USER_PROD }} -d ${{ secrets.DATABASE_NAME_PROD }} -c "${{ inputs.sql }}"
             fi
