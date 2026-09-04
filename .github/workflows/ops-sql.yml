@@ -1,0 +1,29 @@
+name: Ops — SQL readonly
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Base cible (prod|dev)'
+        required: true
+        default: 'prod'
+      sql:
+        description: 'Requête SELECT unique'
+        required: true
+
+jobs:
+  sql:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run readonly SQL on VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            if [ "${{ inputs.target }}" = "dev" ]; then
+              docker compose -f ~/municipall/dev/docker-compose.dev.yml exec -T postgres-dev psql -U ${{ secrets.DATABASE_USER_DEV }} -d ${{ secrets.DATABASE_NAME_DEV }} -c "${{ inputs.sql }}"
+            else
+              docker compose -f ~/municipall/prod/docker-compose.prod.yml exec -T postgres psql -U ${{ secrets.DATABASE_USER_PROD }} -d ${{ secrets.DATABASE_NAME_PROD }} -c "${{ inputs.sql }}"
+            fi
